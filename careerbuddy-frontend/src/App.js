@@ -1,21 +1,66 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000';
+const MockStreamlit = ({ children }) => (
+  <div className="bg-gray-100 min-h-screen p-8">
+    <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+      {children}
+    </div>
+  </div>
+);
 
-function App() {
+const Button = ({ children, onClick, disabled }) => (
+  <button
+    className={`bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={onClick}
+    disabled={disabled}
+  >
+    {children}
+  </button>
+);
+
+const TextArea = ({ label, placeholder, value, onChange }) => (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <textarea
+      className="w-full p-2 border border-gray-300 rounded"
+      rows="4"
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+    ></textarea>
+  </div>
+);
+
+const Icon = ({ d }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline mr-2">
+    <path d={d} />
+  </svg>
+);
+
+const FileUploadIcon = () => (
+  <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+);
+
+const UploadIcon = () => (
+  <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+);
+
+const CareerBuddy = () => {
   const [resume, setResume] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [pitches, setPitches] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleGeneratePitch = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await axios.post(`${API_URL}/generate-pitches`, { resume, jobDescription });
+      const response = await axios.post('http://localhost:5000/generate-pitches', {
+        resume,
+        jobDescription
+      });
       setPitches(response.data.pitches);
     } catch (err) {
       setError('Failed to generate pitches. Please try again.');
@@ -25,48 +70,67 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-      <div className="relative py-3 sm:max-w-xl sm:mx-auto">
-        <div className="relative px-4 py-10 bg-white shadow-lg sm:rounded-3xl sm:p-20">
-          <h1 className="text-2xl font-bold mb-5">CareerBuddy: AI Pitch Generator</h1>
-          <form onSubmit={handleSubmit} className="mb-5">
-            <div className="mb-4">
-              <label htmlFor="resume" className="block text-sm font-medium text-gray-700">Resume</label>
-              <textarea
-                id="resume"
-                value={resume}
-                onChange={(e) => setResume(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                rows="4"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="jobDescription" className="block text-sm font-medium text-gray-700">Job Description</label>
-              <textarea
-                id="jobDescription"
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                rows="4"
-                required
-              />
-            </div>
-            <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" disabled={isLoading}>
-              {isLoading ? 'Generating...' : 'Generate Pitches'}
-            </button>
-          </form>
-          {error && <p className="text-red-500">{error}</p>}
+    <MockStreamlit>
+      <h1 className="text-3xl font-bold mb-6">CareerBuddy: Your AI Career Fair Assistant</h1>
+      
+      <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
+      <div className="mb-4">
+        <Button>
+          <FileUploadIcon />
+          Choose a PDF file
+        </Button>
+      </div>
+      
+      <TextArea
+        label="Or paste your resume text here:"
+        placeholder="Enter your resume text..."
+        value={resume}
+        onChange={(e) => setResume(e.target.value)}
+      />
+      
+      <h2 className="text-2xl font-semibold mb-4">Enter Job Description</h2>
+      <TextArea
+        label="Paste the job description here:"
+        placeholder="Enter the job description..."
+        value={jobDescription}
+        onChange={(e) => setJobDescription(e.target.value)}
+      />
+      
+      <Button onClick={handleGeneratePitch} disabled={isLoading}>
+        {isLoading ? 'Generating...' : 'Generate Pitches'}
+      </Button>
+      
+      {error && <p className="text-red-500 mt-4">{error}</p>}
+      
+      {pitches.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-xl font-semibold mb-2">Your Personalized Pitches</h3>
           {pitches.map((pitch, index) => (
-            <div key={index} className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <h2 className="text-lg font-semibold mb-2">Pitch {index + 1}</h2>
+            <div key={index} className="bg-gray-100 p-4 rounded mb-4">
+              <h4 className="font-semibold">Pitch {index + 1}</h4>
               <p>{pitch}</p>
             </div>
           ))}
         </div>
+      )}
+      
+      <div className="mt-8 bg-gray-200 p-4 rounded">
+        <h2 className="text-xl font-semibold mb-4">About CareerBuddy</h2>
+        <p className="mb-4">
+          CareerBuddy is an AI-powered webapp that helps you create personalized
+          pitches for career fairs. Simply upload your resume and paste the job
+          description to get an instant pitch that aligns your skills and experience
+          with the job requirements.
+        </p>
+        
+        <h2 className="text-xl font-semibold mb-4">Future Feature</h2>
+        <p>
+          <UploadIcon />
+          Image upload for resumes coming soon!
+        </p>
       </div>
-    </div>
+    </MockStreamlit>
   );
 }
 
-export default App;
+export default CareerBuddy;
