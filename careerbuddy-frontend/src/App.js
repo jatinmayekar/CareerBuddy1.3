@@ -46,7 +46,29 @@ const UploadIcon = () => (
   <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
 );
 
+const Input = ({ label, type, placeholder, value, onChange }) => (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <input
+      type={type}
+      className="w-full p-2 border border-gray-300 rounded focus:border-blue-500 focus:ring focus:ring-blue-200"
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+    />
+  </div>
+);
+
+const MicrophoneIcon = () => (
+  <Icon d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8" />
+);
+
+const PlayIcon = () => (
+  <Icon d="M5 3l14 9-14 9V3z" />
+);
+
 const CareerBuddy = () => {
+  const [apiKey, setApiKey] = useState('');
   const [resume, setResume] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [pitches, setPitches] = useState([]);
@@ -54,12 +76,17 @@ const CareerBuddy = () => {
   const [error, setError] = useState('');
 
   const handleGeneratePitch = async () => {
+    if (!apiKey) {
+      setError('Please enter your OpenAI API key.');
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
       const response = await axios.post('http://localhost:5000/generate-pitches', {
         resume,
-        jobDescription
+        jobDescription,
+        apiKey
       });
       setPitches(response.data.pitches);
     } catch (err) {
@@ -72,6 +99,20 @@ const CareerBuddy = () => {
   return (
     <MockStreamlit>
       <h1 className="text-3xl font-bold mb-6">CareerBuddy: Your AI Career Fair Assistant</h1>
+      
+      <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+        <h2 className="text-xl font-semibold mb-2 text-blue-800">API Configuration</h2>
+        <Input
+          label="Enter your OpenAI API Key:"
+          type="password"
+          placeholder="sk-..."
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+        />
+        <p className="text-sm text-blue-600 mt-2">
+          Your API key is required to use GPT-4o for generating pitches. It's stored securely and never shared.
+        </p>
+      </div>
       
       <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
       <div className="mb-4">
@@ -123,11 +164,21 @@ const CareerBuddy = () => {
           with the job requirements.
         </p>
         
-        <h2 className="text-xl font-semibold mb-4">Future Feature</h2>
-        <p>
-          <UploadIcon />
-          Image upload for resumes coming soon!
-        </p>
+        <h2 className="text-xl font-semibold mb-4">Future Features</h2>
+        <ul className="list-disc list-inside">
+          <li className="mb-2">
+            <UploadIcon />
+            Image upload for resumes
+          </li>
+          <li className="mb-2">
+            <PlayIcon />
+            Listen to your generated pitch (text-to-speech)
+          </li>
+          <li>
+            <MicrophoneIcon />
+            Practice your pitch with speech recognition
+          </li>
+        </ul>
       </div>
     </MockStreamlit>
   );

@@ -2,10 +2,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 import openai
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -21,9 +17,8 @@ Ensure each pitch has a unique approach or emphasizes different aspects of the c
 
 Tailor each pitch to the specific resume and job description provided, ensuring they're brief yet impactful."""
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-def generate_pitches(resume, job_description):
+def generate_pitches(api_key, resume, job_description):
+    client = OpenAI(api_key=api_key)
     try:
         chat_completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -51,11 +46,12 @@ def api_generate_pitches():
     data = request.json
     resume = data.get('resume', '')
     job_description = data.get('jobDescription', '')
+    api_key = data.get('apiKey', '')
     
-    if not resume or not job_description:
-        return jsonify({"error": "Both resume and job description are required"}), 400
+    if not resume or not job_description or not api_key:
+        return jsonify({"error": "Resume, job description, and API key are all required"}), 400
 
-    pitches = generate_pitches(resume, job_description)
+    pitches = generate_pitches(api_key, resume, job_description)
     pitch_list = pitches.split("PITCH")
     formatted_pitches = [pitch.strip() for pitch in pitch_list if pitch.strip()]
 
