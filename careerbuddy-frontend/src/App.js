@@ -67,31 +67,110 @@ const PlayIcon = () => (
   <Icon d="M5 3l14 9-14 9V3z" />
 );
 
+const CopyButton = ({ text }) => {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+    >
+      {isCopied ? 'Copied!' : 'Copy to Clipboard'}
+    </button>
+  );
+};
+
 const CareerBuddy = () => {
   const [apiKey, setApiKey] = useState('');
   const [resume, setResume] = useState('');
+  const [resumeFile, setResumeFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
   const [pitches, setPitches] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+
+  const validateApiKey = async () => {
+    try {
+      const response = await axios.post('http://localhost:5000/validate-api-key', { apiKey });
+      return response.data.isValid;
+    } catch (err) {
+      console.error('Error validating API key:', err);
+      setError(`Error validating API key: ${err.response?.data?.error || err.message}`);
+      return false;
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.type === 'application/pdf') {
+      setResumeFile(file);
+    } else {
+      setError('Please upload a PDF file.');
+    }
+  };
 
   const handleGeneratePitch = async () => {
     if (!apiKey) {
       setError('Please enter your OpenAI API key.');
       return;
     }
+
+    if (!resumeFile && !resume) {
+      setError('Please provide a resume (either text or PDF file).');
+      return;
+    }
+
+    if (!jobDescription) {
+      setError('Please enter a job description.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
+    setDebugInfo('');
+
+    const isValidKey = await validateApiKey();
+    if (!isValidKey) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await axios.post('http://localhost:5000/generate-pitches', {
-        resume,
-        jobDescription,
-        apiKey
-      });
+      let data;
+      let headers = {};
+      
+      if (resumeFile) {
+        data = new FormData();
+        data.append('apiKey', apiKey);
+        data.append('jobDescription', jobDescription);
+        data.append('resumeFile', resumeFile);
+        headers['Content-Type'] = 'multipart/form-data';
+      } else if (resume) {
+        data = { apiKey, jobDescription, resume };
+        headers['Content-Type'] = 'application/json';
+      } else {
+        throw new Error('Please provide a resume (either text or PDF file).');
+      }
+
+      const response = await axios.post('http://localhost:5000/generate-pitches', data, { headers });
       setPitches(response.data.pitches);
+      setDebugInfo(JSON.stringify(response.data, null, 2));
     } catch (err) {
-      setError('Failed to generate pitches. Please try again.');
-      console.error(err);
+      console.error('Error generating pitches:', err);
+      setError(`Failed to generate pitches: ${err.response?.data?.error || err.message}`);
+      setDebugInfo(JSON.stringify(err.response?.data, null, 2));
     }
     setIsLoading(false);
   };
@@ -107,7 +186,12 @@ const CareerBuddy = () => {
           type="password"
           placeholder="sk-..."
           value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
+          //onChange={(e) => setApiKey(e.target.value)}
+          onChange={(e) => {
+            const apiKey = e.target.value;
+            setApiKey(apiKey);
+            //validateApiKey(apiKey);
+          }}
         />
         <p className="text-sm text-blue-600 mt-2">
           Your API key is required to use GPT-4o for generating pitches. It's stored securely and never shared.
@@ -116,10 +200,18 @@ const CareerBuddy = () => {
       
       <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
       <div className="mb-4">
-        <Button>
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={handleFileUpload}
+          className="hidden"
+          id="resume-upload"
+        />
+        <label htmlFor="resume-upload" className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
           <FileUploadIcon />
           Choose a PDF file
-        </Button>
+        </label>
+        {resumeFile && <p className="mt-2">Selected file: {resumeFile.name}</p>}
       </div>
       
       <TextArea
@@ -138,31 +230,59 @@ const CareerBuddy = () => {
       />
       
       <Button onClick={handleGeneratePitch} disabled={isLoading}>
-        {isLoading ? 'Generating...' : 'Generate Pitches'}
+        {isLoading ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Generating...
+          </>
+        ) : 'Generate Pitches'}
       </Button>
       
       {error && <p className="text-red-500 mt-4">{error}</p>}
       
       {pitches.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-xl font-semibold mb-2">Your Personalized Pitches</h3>
+          <h3 className="text-xl font-semibold mb-4">Your Personalized Pitches</h3>
           {pitches.map((pitch, index) => (
-            <div key={index} className="bg-gray-100 p-4 rounded mb-4">
-              <h4 className="font-semibold">Pitch {index + 1}</h4>
-              <p>{pitch}</p>
+            <div key={index} className="bg-gray-100 p-6 rounded-lg mb-6 shadow-md">
+              <h4 className="text-lg font-semibold mb-2 text-blue-600">Pitch {index + 1}</h4>
+              <p className="text-gray-800 leading-relaxed whitespace-pre-line">{pitch}</p>
+              <CopyButton text={pitch} />
             </div>
           ))}
+        </div>
+      )}
+
+      {debugInfo && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowDebugInfo(!showDebugInfo)}
+            className="text-blue-600 hover:text-blue-800 mb-2"
+          >
+            {showDebugInfo ? 'Hide' : 'Show'} Debug Information
+          </button>
+          {showDebugInfo && (
+            <pre className="bg-gray-200 p-4 rounded overflow-x-auto text-sm">
+              {debugInfo}
+            </pre>
+          )}
         </div>
       )}
       
       <div className="mt-8 bg-gray-200 p-4 rounded">
         <h2 className="text-xl font-semibold mb-4">About CareerBuddy</h2>
         <p className="mb-4">
-          CareerBuddy is an AI-powered webapp that helps you create personalized
+          CareerBuddy is an AI-powered webapp created by Jatin Mayekar that helps you create personalized
           pitches for career fairs. Simply upload your resume and paste the job
           description to get an instant pitch that aligns your skills and experience
           with the job requirements.
         </p>
+
+        <p> Jatin Mayekar Twitter: <a href="https://twitter.com/jatin_mayekar" style={{ color: '#0078ff' }}>@jatin_mayekar</a> </p>
+        <p> Jatin Mayekar LinkedIn: <a href="https://www.linkedin.com/in/jatin-mayekar/" style={{ color: '#0078ff' }}>Jatin Mayekar</a> </p>
         
         <h2 className="text-xl font-semibold mb-4">Future Features</h2>
         <ul className="list-disc list-inside">

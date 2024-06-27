@@ -1,0 +1,31 @@
+Job description
+In anticipation of a contract award, Tantus Technologies, Inc. (Tantus) - recognized by the Washington Post as a Top Workplace - is looking for a Prompt Engineer to help our client implement AI language models. This role will help support government initiatives to implement AI tool and platforms for their users.
+• Must be US Citizen or Green Card Holder eligible to obtain a Public Trust.
+
+What You'll Do
+• Create and refine prompts for AI language models to generate desired outputs or responses, balancing specificity, clarity, and user engagement.
+• Fine-tune language models based on prompt performance and user feedback, optimizing prompt-response pairs to achieve desired outcomes.
+• Continuously iterate on prompt design and model fine-tuning strategies to improve language model performance and responsiveness to user input.
+
+Required Knowledge and Skills
+• Bachelor's in computer science or related field
+• Minimum 5 years' experience
+• 2+ years' experience related to AI language models
+• Experience in an Agile environment
+• Experience with DevOps tools such as Azure DevOps
+• Must be US Citizen or Green Card Holder eligible to obtain a Public Trust.
+
+Abilities
+• Ability to convey technical information to both technical and non-technical audiences.
+
+Why Tantus? We Provide:
+• Competitive total compensation package based on the work you do and the contributions you make
+• An environment that supports balancing great work with a great life
+• A learning organization that invests in you with $3000 annually for professional development opportunities
+• Excellent healthcare programs available through United Healthcare
+• Community engagement events where you will have ample opportunities to give back by volunteering
+• Discretionary quarterly bonuses for above and beyond contributions and outstanding performance
+
+About Us
+
+Tantus is an IT development and management consulting firm helping federal programs become more successful, cost-effective and mission-focused through program management oversight and system development and implementation. Our people are committed to making our world better by delivering solutions to improve the effectiveness of government services and citizen experience. Tantus is Latin for “so great” or “so much” – we strive to put great things into everything we do.

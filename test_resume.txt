@@ -1,0 +1,69 @@
+## **Jatin Mayekar**
+
+*AI Prompt Engineer*
+
+---
+
+### **Professional Experience**
+
+**AI Web Application Developer***GitHub: [link](https://github.com/jatinmayekar/my-app/blob/master/backend/server.py)*
+
+- Developed Flask-based web application with GPT-3.5 Turbo, enhancing user experience through real-time interactions.
+- Incorporated text-to-speech for dynamic audio responses.
+- Managed sessions securely using Flask-Session.
+- Integrated Google's OAuth2.0 for authentication and Gmail API; established real-time email notifications via Google Cloud Pub/Sub.
+- Implemented robust logging mechanisms and integrated CORS for cross-origin requests.
+
+**Web Application Developer - Nerd AI Chat Interface***github: [link](https://github.com/jatinmayekar/my-app/blob/master/src/App.js)*
+
+- Crafted an interactive chat interface using Geist UI components.
+- Enabled real-time AI backend communication using Axios.
+- Provided multimodal responses (text and audio) for enhanced user engagement.
+- Developed audio recording, ensuring versatility in user input.
+- Designed a responsive UI with robust error handling for API calls.
+
+**Automated Document Processing & Knowledge Retrieval***github: [link](https://github.com/jatinmayekar/ai_project_1/blob/main/TextQuery2PDFs.ipynb)*
+
+- Designed a tool for automated data extraction from PDFs using Google Colab.
+- Integrated GPT for advanced text processing and refinement.
+- Deployed text partitioning and embedding techniques for precise information retrieval.
+- Addressed challenges in PDF data extraction, querying large texts, and refining answers using AI.
+- Utilized libraries like PyPDF2, tiktoken, and OpenAI for a comprehensive solution.
+
+**TextualPrompt3D: Point Cloud and Mesh Generator***github: [link](https://github.com/jatinmayekar/ai_project_1/blob/main/point_e_colab.ipynb)*
+
+- Developed an interface to convert textual prompts into 3D models.
+- Addressed the challenge of converting abstract textual prompts into detailed 3D point clouds.
+- Integrated point cloud generation methods using OpenAI's models.
+- Implemented an interactive UI using ipywidgets for an enhanced user experience.
+- Designed to handle diverse textual prompts and convert point clouds to meshes in PLY format.
+
+**DocuQuery: Advanced Conversational Document Retrieval System***github: [link](https://github.com/jatinmayekar/TechPDFchatbot/blob/main/main.py)*
+
+- Extracted and processed information from complex PDF documents.
+- Introduced an advanced search mechanism using OpenAI embeddings.
+- Developed a conversational interface for intuitive document queries.
+
+**PDF Highlighter: Automated Content-Type Annotation System***github: [link](https://github.com/jatinmayekar/annotateUnstructuredioPDFs)*
+
+- Automated the visual highlighting of different PDF elements.
+- Assisted in the digital transformation of hard copy documents.
+- Improved document accessibility with visual content-type distinctions.
+
+---
+
+### **Key Achievements**
+
+- Developed multiple AI-driven applications addressing real-world challenges in document processing, 3D modeling, and user interaction.
+- Demonstrated expertise in integrating OpenAI models, designing user-friendly interfaces, and ensuring data security and accessibility.
+- Pioneered in automating processes, enhancing user experiences, and innovating solutions in the AI domain.
+
+---
+
+### **Technical Skills**
+
+- Programming: Python, JavaScript
+- Frameworks: Flask, Geist UI
+- Tools: Google Colab, OpenAI, Google Cloud Pub/Sub, ipywidgets
+- Databases: Google Drive API
+- Other: OAuth2.0, Gmail API, CORS, Axios
