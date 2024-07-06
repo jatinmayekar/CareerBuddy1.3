@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const MockStreamlit = ({ children }) => (
   <div className="bg-gray-100 min-h-screen p-8">
     <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
@@ -103,7 +105,8 @@ const CareerBuddy = () => {
 
   const validateApiKey = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/validate-api-key', { apiKey });
+      // eslint-disable-next-line no-template-curly-in-string
+      const response = await axios.post('${API_URL}/validate-api-key', { apiKey });
       return response.data.isValid;
     } catch (err) {
       console.error('Error validating API key:', err);
@@ -164,7 +167,7 @@ const CareerBuddy = () => {
         throw new Error('Please provide a resume (either text or PDF file).');
       }
 
-      const response = await axios.post('http://localhost:5000/generate-pitches', data, { headers });
+      const response = await axios.post('${API_URL}/generate-pitches', data, { headers });
       setPitches(response.data.pitches);
       setDebugInfo(JSON.stringify(response.data, null, 2));
     } catch (err) {
