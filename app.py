@@ -81,6 +81,11 @@ def generate_pitches(api_key, resume, job_description):
         print(f"Error generating pitches: {str(e)}")
         return f"Error: {str(e)}"
 
+# Add home route
+@app.route('/')
+def home():
+    return "Welcome to CareerBuddy API!"
+
 @app.route('/validate-api-key', methods=['POST'])
 def api_validate_api_key():
     data = request.json
