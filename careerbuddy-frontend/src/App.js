@@ -106,7 +106,7 @@ const CareerBuddy = () => {
   const validateApiKey = async () => {
     try {
       // eslint-disable-next-line no-template-curly-in-string
-      const response = await axios.post('${API_URL}/validate-api-key', { apiKey });
+      const response = await axios.post(`${API_URL}/validate-api-key`, { apiKey });
       return response.data.isValid;
     } catch (err) {
       console.error('Error validating API key:', err);
@@ -167,7 +167,7 @@ const CareerBuddy = () => {
         throw new Error('Please provide a resume (either text or PDF file).');
       }
 
-      const response = await axios.post('${API_URL}/generate-pitches', data, { headers });
+      const response = await axios.post(`${API_URL}/generate-pitches`, data, { headers });
       setPitches(response.data.pitches);
       setDebugInfo(JSON.stringify(response.data, null, 2));
     } catch (err) {
