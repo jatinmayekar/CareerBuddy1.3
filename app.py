@@ -9,7 +9,8 @@ import os
 
 app = Flask(__name__)
 #CORS(app)
-CORS(app, resources={r"/*": {"origins": os.getenv('FRONTEND_URL', 'http://localhost:3000')}})
+#CORS(app, resources={r"/*": {"origins": os.getenv('FRONTEND_URL', 'http://localhost:3000')}})
+CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
 SYSTEM_PROMPT = """Generate three distinct, concise, and compelling career fair pitches (each 30-60 seconds when spoken) based on the candidate's resume and the job description. Each pitch should:
 
@@ -41,7 +42,7 @@ Must format your response exactly as follows:
 def validate_api_key(api_key):
     client = OpenAI(api_key=api_key)
     try:
-        client.models.list()
+        print(client.models.list())
         return True
     except Exception as e:
         print(f"API Key Validation Error: {str(e)}")
@@ -88,13 +89,18 @@ def home():
 
 @app.route('/validate-api-key', methods=['POST'])
 def api_validate_api_key():
+    print("Received request to validate API key")
     data = request.json
+    print(f"Request data: {data}")
     api_key = data.get('apiKey', '')
     
     if not api_key:
+        print("No API key provided")
         return jsonify({"error": "API key is required"}), 400
 
+    print("Validating API key")
     is_valid = validate_api_key(api_key)
+    print(f"API key is valid: {is_valid}")
     return jsonify({"isValid": is_valid})
 
 @app.route('/generate-pitches', methods=['POST'])

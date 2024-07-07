@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+//const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = 'https://careerbuddy-54b5c7a8058b.herokuapp.com' || 'http://localhost:5000';
 
 const MockStreamlit = ({ children }) => (
   <div className="bg-gray-100 min-h-screen p-8">
