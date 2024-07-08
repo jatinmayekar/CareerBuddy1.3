@@ -304,15 +304,19 @@ const CareerBuddy = () => {
         <ul className="list-disc list-inside">
           <li className="mb-2">
             <UploadIcon />
-            Image upload for resumes
+            Investor Form
+          </li>
+          <li className="mb-2">
+            <UploadIcon />
+            Waitlist subscription
           </li>
           <li className="mb-2">
             <PlayIcon />
-            Listen to your generated pitch (text-to-speech)
+            Listen to your generated pitch
           </li>
           <li>
             <MicrophoneIcon />
-            Practice your pitch with speech recognition
+            Get feedback on your pitch based on Hume AI
           </li>
         </ul>
       </div>
