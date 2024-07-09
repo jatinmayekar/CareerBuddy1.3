@@ -93,6 +93,86 @@ const CopyButton = ({ text }) => {
   );
 };
 
+const InvestorForm = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    reason: '',
+    amount: '',
+  });
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevState => ({ ...prevState, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const response = await axios.post(`${API_URL}/submit-investor-form`, formData);
+      console.log('Form submitted:', response.data);
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setError('Failed to submit form. Please try again later.');
+    }
+  };
+
+  if (isSubmitted) {
+    return (
+      <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
+        <p className="font-bold">Thank you for your interest!</p>
+        <p>We'll be in touch soon.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input
+        label="Name"
+        type="text"
+        placeholder="Your full name"
+        value={formData.name}
+        onChange={handleChange}
+        name="name"
+        required
+      />
+      <Input
+        label="Email"
+        type="email"
+        placeholder="Your email address"
+        value={formData.email}
+        onChange={handleChange}
+        name="email"
+        required
+      />
+      <TextArea
+        label="Why do you want to invest?"
+        placeholder="Briefly explain your interest..."
+        value={formData.reason}
+        onChange={handleChange}
+        name="reason"
+        required
+      />
+      <Input
+        label="Potential investment amount"
+        type="text"
+        placeholder="e.g., $10,000"
+        value={formData.amount}
+        onChange={handleChange}
+        name="amount"
+        required
+      />
+      <Button type="submit">Submit</Button>
+      {error && <p className="text-red-500 mt-2">{error}</p>}
+    </form>
+  );
+};
+
 const CareerBuddy = () => {
   const [apiKey, setApiKey] = useState('');
   const [resume, setResume] = useState('');
@@ -319,6 +399,12 @@ const CareerBuddy = () => {
             Get feedback on your pitch based on Hume AI
           </li>
         </ul>
+      </div>
+
+      <div className="mt-8 bg-blue-100 p-6 rounded-lg">
+        <h2 className="text-2xl font-semibold mb-4">Interested in Investing?</h2>
+        <p className="mb-4">If you're interested in investing in CareerBuddy, please fill out the form below. We'll get back to you with more information.</p>
+        <InvestorForm />
       </div>
     </MockStreamlit>
   );

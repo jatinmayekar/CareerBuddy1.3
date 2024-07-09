@@ -6,6 +6,9 @@ import PyPDF2
 import io
 import traceback
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 #CORS(app)
@@ -135,6 +138,49 @@ def api_generate_pitches():
         print(f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+    
+@app.route('/submit-investor-form', methods=['POST'])
+def submit_investor_form():
+    try:
+        data = request.json
+        name = data.get('name')
+        sender_email = data.get('email')  # This is the email from the form
+        reason = data.get('reason')
+        amount = data.get('amount')
+
+        # Create email content
+        subject = "New Investor Interest in CareerBuddy"
+        body = f"""
+        New investor interest from:
+
+        Name: {name}
+        Email: {sender_email}
+        Reason for Interest: {reason}
+        Potential Investment Amount: {amount}
+        """
+
+        # Your Gmail configuration
+        your_email = "jatinmayekar27@gmail.com"  # Replace with your Gmail address
+        app_password = os.environ.get('GMAIL_APP_PASSWORD')  # We'll set this as an environment variable
+
+        # Create the email message
+        message = MIMEMultipart()
+        message["From"] = sender_email  # Use the email from the form
+        message["To"] = your_email
+        message["Subject"] = subject
+        message["Reply-To"] = sender_email  # Set reply-to as the sender's email
+
+        message.attach(MIMEText(body, "plain"))
+
+        # Send the email
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(your_email, app_password)
+            server.send_message(message)
+
+        return jsonify({"message": "Form submitted successfully"}), 200
+    except Exception as e:
+        print(f"Error submitting investor form: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
