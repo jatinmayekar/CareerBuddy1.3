@@ -144,23 +144,27 @@ def submit_investor_form():
     try:
         data = request.json
         name = data.get('name')
-        sender_email = data.get('email')  # This is the email from the form
+        sender_email = data.get('email')
+        interest = data.get('interest')
         reason = data.get('reason')
         amount = data.get('amount')
 
         # Create email content
-        subject = "New Investor Interest in CareerBuddy"
+        subject = f"New {interest.capitalize()} Interest in CareerBuddy"
         body = f"""
-        New investor interest from:
+        New {interest} interest from:
 
         Name: {name}
         Email: {sender_email}
-        Reason for Interest: {reason}
-        Potential Investment Amount: {amount}
+        Interest: {interest.capitalize()}
+        Reason: {reason}
         """
 
+        if interest in ['investing', 'both']:
+            body += f"Potential Investment Amount: {amount}\n"
+
         # Your Gmail configuration
-        your_email = "jatinmayekar27@gmail.com"  # Replace with your Gmail address
+        your_email = "your-gmail@gmail.com"  # Replace with your Gmail address
         app_password = os.environ.get('GMAIL_APP_PASSWORD')  # We'll set this as an environment variable
 
         # Create the email message
@@ -181,6 +185,6 @@ def submit_investor_form():
     except Exception as e:
         print(f"Error submitting investor form: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-
+    
 if __name__ == '__main__':
     app.run(debug=True)

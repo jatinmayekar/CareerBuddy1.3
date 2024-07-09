@@ -421,8 +421,21 @@ const CareerBuddy = () => {
       </div>
 
       <div className="mt-8 bg-blue-100 p-6 rounded-lg">
-        <h2 className="text-2xl font-semibold mb-4">Interested in Investing?</h2>
-        <p className="mb-4">If you're interested in investing in CareerBuddy, please fill out the form below. We'll get back to you with more information.</p>
+        <h2 className="text-2xl font-semibold mb-4">Join Our Journey: Invest or Get Early Access</h2>
+        <p className="mb-4">
+          CareerBuddy is growing, and we're excited to offer two ways for you to be part of our success:
+        </p>
+        <ul className="list-disc list-inside mb-4">
+          <li className="mb-2">
+            <strong>Invest in CareerBuddy:</strong> If you see the potential in our AI-powered career assistance platform and want to contribute to our growth, we'd love to discuss investment opportunities.
+          </li>
+          <li className="mb-2">
+            <strong>Join our Waitlist:</strong> Be among the first to experience new features and updates. Get early access to upcoming capabilities like AI-powered interview feedback and personalized career coaching.
+          </li>
+        </ul>
+        <p className="mb-4">
+          Whether you're interested in investing or want to be at the forefront of AI-driven career development, fill out the form below. We'll reach out with more information tailored to your interests.
+        </p>
         <InvestorForm />
       </div>
     </MockStreamlit>
