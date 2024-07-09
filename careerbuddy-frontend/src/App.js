@@ -97,6 +97,7 @@ const InvestorForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    interest: '',
     reason: '',
     amount: '',
   });
@@ -124,8 +125,8 @@ const InvestorForm = () => {
   if (isSubmitted) {
     return (
       <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
-        <p className="font-bold">Thank you for your interest!</p>
-        <p>We'll be in touch soon.</p>
+        <p className="font-bold">Thank you for your interest in CareerBuddy!</p>
+        <p>We'll be in touch soon with more information.</p>
       </div>
     );
   }
@@ -157,7 +158,27 @@ const InvestorForm = () => {
         />
       </div>
       <div>
-        <label htmlFor="reason" className="block text-sm font-medium text-gray-700">Why do you want to invest?</label>
+        <label htmlFor="interest" className="block text-sm font-medium text-gray-700">I'm interested in:</label>
+        <select
+          id="interest"
+          name="interest"
+          value={formData.interest}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        >
+          <option value="">Select an option</option>
+          <option value="investing">Investing in CareerBuddy</option>
+          <option value="waitlist">Joining the Waitlist</option>
+          <option value="both">Both Investing and Joining the Waitlist</option>
+        </select>
+      </div>
+      <div>
+        <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
+          {formData.interest === 'investing' ? 'Why do you want to invest?' : 
+           formData.interest === 'waitlist' ? 'What features are you most excited about?' :
+           'Tell us more about your interest in CareerBuddy'}
+        </label>
         <textarea
           id="reason"
           name="reason"
@@ -168,19 +189,20 @@ const InvestorForm = () => {
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
         ></textarea>
       </div>
-      <div>
-        <label htmlFor="amount" className="block text-sm font-medium text-gray-700">Potential investment amount</label>
-        <input
-          type="text"
-          id="amount"
-          name="amount"
-          value={formData.amount}
-          onChange={handleChange}
-          required
-          placeholder="e.g., $10,000"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-        />
-      </div>
+      {(formData.interest === 'investing' || formData.interest === 'both') && (
+        <div>
+          <label htmlFor="amount" className="block text-sm font-medium text-gray-700">Potential investment amount</label>
+          <input
+            type="text"
+            id="amount"
+            name="amount"
+            value={formData.amount}
+            onChange={handleChange}
+            placeholder="e.g., $10,000"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+          />
+        </div>
+      )}
       <button
         type="submit"
         className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
