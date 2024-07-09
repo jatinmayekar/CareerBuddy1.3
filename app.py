@@ -164,7 +164,7 @@ def submit_investor_form():
             body += f"Potential Investment Amount: {amount}\n"
 
         # Your Gmail configuration
-        your_email = "your-gmail@gmail.com"  # Replace with your Gmail address
+        your_email = "jatinmayekar27@gmail.com"  # Replace with your Gmail address
         app_password = os.environ.get('GMAIL_APP_PASSWORD')  # We'll set this as an environment variable
 
         # Create the email message
