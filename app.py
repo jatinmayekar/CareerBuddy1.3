@@ -12,6 +12,9 @@ from email.mime.multipart import MIMEMultipart
 import requests
 from functools import wraps
 import json
+import traceback
+from huggingface_hub import InferenceClient
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
@@ -71,57 +74,27 @@ def extract_text_from_pdf(pdf_file):
 
 def generate_pitches_hf(resume, job_description):
     try:
-        prompt = f"""You are an AI assistant specialized in creating compelling career fair pitches. Based on the provided resume and job description, generate three distinct, concise, and compelling career fair pitches (each 30-60 seconds when spoken). Each pitch should:
-
-1. Introduce the candidate and their relevant experience
-2. Highlight key skills and achievements
-3. Show alignment with the job and company
-4. Invite further discussion
-
-Ensure each pitch has a unique approach or emphasizes different aspects of the candidate's background.
-
-Resume:
-{resume}
-
-Job Description:
-{job_description}
-
-Provide your response in the following format:
-
-[PITCH1]
-(Content of first pitch here)
-[/PITCH1]
-
-[PITCH2]
-(Content of second pitch here)
-[/PITCH2]
-
-[PITCH3]
-(Content of third pitch here)
-[/PITCH3]
-"""
-
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 1000,
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "do_sample": True,
-            }
-        }
+        client = InferenceClient(
+            "meta-llama/Meta-Llama-3-70B-Instruct",
+            token=HF_API_TOKEN,
+        )
         
-        response = requests.post(HF_API_URL, headers=hf_headers, json=payload)
-        response.raise_for_status()
+        prompt = f"{SYSTEM_PROMPT}\n\nResume:\n{resume}\n\nJob Description:\n{job_description}\n\nGenerate the pitches:"
         
-        content = json.loads(response.content.decode("utf-8"))[0]["generated_text"]
-        
+        full_response = ""
+        for message in client.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            stream=True,
+        ):
+            full_response += message.choices[0].delta.content or ""
+
         pitches = []
         for i in range(1, 4):
-            start = content.find(f"[PITCH{i}]") + len(f"[PITCH{i}]")
-            end = content.find(f"[/PITCH{i}]")
+            start = full_response.find(f"[PITCH{i}]") + len(f"[PITCH{i}]")
+            end = full_response.find(f"[/PITCH{i}]")
             if start != -1 and end != -1:
-                pitches.append(content[start:end].strip())
+                pitches.append(full_response[start:end].strip())
         
         return pitches
     except Exception as e:
@@ -212,7 +185,7 @@ def api_generate_pitches():
         print(f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
-
+    
 @app.route('/submit-investor-form', methods=['POST'])
 def submit_investor_form():
     try:
