@@ -226,14 +226,18 @@ const CareerBuddy = () => {
   const [debugInfo, setDebugInfo] = useState('');
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [trialUsed, setTrialUsed] = useState(0);
+  const [devKey, setDevKey] = useState('');
+  const [isDevMode, setIsDevMode] = useState(false);
 
   useEffect(() => {
-    // Load trial usage from localStorage
-    const storedTrialUsed = localStorage.getItem('trialUsed');
-    if (storedTrialUsed) {
-      setTrialUsed(parseInt(storedTrialUsed, 10));
+    // Load trial usage from localStorage only if not in dev mode
+    if (!isDevMode) {
+      const storedTrialUsed = localStorage.getItem('trialUsed');
+      if (storedTrialUsed) {
+        setTrialUsed(parseInt(storedTrialUsed, 10));
+      }
     }
-  }, []);
+  }, [isDevMode]);
 
   // const validateApiKey = async () => {
   //   try {
@@ -323,7 +327,7 @@ const CareerBuddy = () => {
   // };
 
   const handleGeneratePitch = async () => {
-    if (trialUsed >= 3 && apiType === 'hf') {
+    if (trialUsed >= 3 && apiType === 'hf' && !isDevMode) {
       setError('Trial expired. Please use OpenAI API or switch to the free Hugging Face option.');
       return;
     }
@@ -351,6 +355,7 @@ const CareerBuddy = () => {
       let data = new FormData();
       data.append('apiType', apiType);
       data.append('jobDescription', jobDescription);
+      data.append('devKey', devKey);
       
       if (resumeFile) {
         data.append('resumeFile', resumeFile);
@@ -368,17 +373,15 @@ const CareerBuddy = () => {
         }
       });
 
-      if (response.data.pitches && response.data.pitches.length > 0) {
-        setPitches(response.data.pitches);
-      } else {
-        setError('No valid pitches were generated. Please try again.');
-      }
-
-      if (apiType === 'hf') {
+      setPitches(response.data.pitches);
+      setIsDevMode(response.data.devMode);
+      
+      if (apiType === 'hf' && !isDevMode) {
         const newTrialUsed = trialUsed + 1;
         setTrialUsed(newTrialUsed);
         localStorage.setItem('trialUsed', newTrialUsed.toString());
       }
+      
       setDebugInfo(JSON.stringify(response.data, null, 2));
     } catch (err) {
       console.error('Error generating pitches:', err);
@@ -392,13 +395,15 @@ const CareerBuddy = () => {
     <MockStreamlit>
       <h1 className="text-3xl font-bold mb-6">CareerBuddy: Your AI Career Fair Assistant</h1>
       
-      {trialUsed < 3 ? (
+      {!isDevMode && trialUsed < 3 ? (
         <div className="mb-4 bg-blue-100 p-2 rounded">
           Hugging Face API Trial uses remaining: {3 - trialUsed}
         </div>
       ) : (
         <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded-md">
-          <h2 className="text-xl font-semibold mb-2 text-yellow-800">Trial Expired</h2>
+          <h2 className="text-xl font-semibold mb-2 text-yellow-800">
+            {isDevMode ? "Developer Mode Active" : "Trial Expired"}
+          </h2>
           <p>Please choose an API to continue using CareerBuddy:</p>
           <select
             value={apiType}
@@ -426,6 +431,17 @@ const CareerBuddy = () => {
           </p>
         </div>
       )}
+
+      <div className="mb-6 bg-gray-100 border-l-4 border-gray-500 p-4 rounded-md">
+        <h2 className="text-xl font-semibold mb-2 text-gray-800">Developer Mode</h2>
+        <Input
+          label="Enter Developer Key:"
+          type="password"
+          placeholder="Dev key..."
+          value={devKey}
+          onChange={(e) => setDevKey(e.target.value)}
+        />
+      </div>
       
       <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
       <div className="mb-4">

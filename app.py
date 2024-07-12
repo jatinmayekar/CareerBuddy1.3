@@ -23,6 +23,8 @@ HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-
 HF_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
 hf_headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
 
+DEV_SECRET = os.getenv('DEV_SECRET')
+
 SYSTEM_PROMPT = """Generate three distinct, concise, and compelling career fair pitches (each 30-60 seconds when spoken) based on the candidate's resume and the job description. Each pitch should:
 
 1. Introduce the candidate and their relevant experience
@@ -234,9 +236,12 @@ def api_generate_pitches():
         data = request.json if request.is_json else request.form
         resume = data.get('resume', '')
         job_description = data.get('jobDescription', '')
-        api_key = data.get('apiKey')
-        api_type = data.get('apiType', 'hf')  # 'hf' for Hugging Face, 'openai' for OpenAI
+        api_type = data.get('apiType', 'hf')
+        dev_key = data.get('devKey', '')
         
+        # Check for developer mode
+        is_dev_mode = dev_key == DEV_SECRET
+
         if 'resumeFile' in request.files:
             pdf_file = request.files['resumeFile'].read()
             resume_text = extract_text_from_pdf(pdf_file)
@@ -247,15 +252,15 @@ def api_generate_pitches():
         if not job_description or not resume:
             return jsonify({"error": "Both job description and resume are required"}), 400
 
-        if api_type == 'openai' and not api_key:
-            return jsonify({"error": "API key is required for OpenAI"}), 400
-
         if api_type == 'openai':
+            api_key = data.get('apiKey')
+            if not api_key:
+                return jsonify({"error": "API key is required for OpenAI"}), 400
             pitches = generate_pitches_openai(api_key, resume, job_description)
         else:
             pitches = generate_pitches_hf(resume, job_description)
 
-        return jsonify({"pitches": pitches})
+        return jsonify({"pitches": pitches, "devMode": is_dev_mode})
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
