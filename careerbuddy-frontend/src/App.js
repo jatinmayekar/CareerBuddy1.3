@@ -368,7 +368,12 @@ const CareerBuddy = () => {
         }
       });
 
-      setPitches(response.data.pitches);
+      if (response.data.pitches && response.data.pitches.length > 0) {
+        setPitches(response.data.pitches);
+      } else {
+        setError('No valid pitches were generated. Please try again.');
+      }
+
       if (apiType === 'hf') {
         const newTrialUsed = trialUsed + 1;
         setTrialUsed(newTrialUsed);

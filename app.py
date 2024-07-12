@@ -11,13 +11,15 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import requests
 from functools import wraps
+import json
 
 app = Flask(__name__)
 #CORS(app)
 #CORS(app, resources={r"/*": {"origins": os.getenv('FRONTEND_URL', 'http://localhost:3000')}})
 CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
-HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+#HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct"
 HF_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
 hf_headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
 
@@ -93,13 +95,50 @@ def extract_text_from_pdf(pdf_file):
 
 def generate_pitches_hf(resume, job_description):
     try:
+        prompt = f"""You are an AI assistant specialized in creating compelling career fair pitches. Based on the provided resume and job description, generate three distinct, concise, and compelling career fair pitches (each 30-60 seconds when spoken). Each pitch should:
+
+1. Introduce the candidate and their relevant experience
+2. Highlight key skills and achievements
+3. Show alignment with the job and company
+4. Invite further discussion
+
+Ensure each pitch has a unique approach or emphasizes different aspects of the candidate's background.
+
+Resume:
+{resume}
+
+Job Description:
+{job_description}
+
+Provide your response in the following format:
+
+[PITCH1]
+(Content of first pitch here)
+[/PITCH1]
+
+[PITCH2]
+(Content of second pitch here)
+[/PITCH2]
+
+[PITCH3]
+(Content of third pitch here)
+[/PITCH3]
+"""
+
         payload = {
-            "inputs": f"{SYSTEM_PROMPT}\n\nResume:\n{resume}\n\nJob Description:\n{job_description}",
-            "parameters": {"max_length": 1000}
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 1000,
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "do_sample": True,
+            }
         }
+        
         response = requests.post(HF_API_URL, headers=hf_headers, json=payload)
         response.raise_for_status()
-        content = response.json()[0]['generated_text']
+        
+        content = json.loads(response.content.decode("utf-8"))[0]["generated_text"]
         
         pitches = []
         for i in range(1, 4):
@@ -107,10 +146,11 @@ def generate_pitches_hf(resume, job_description):
             end = content.find(f"[/PITCH{i}]")
             if start != -1 and end != -1:
                 pitches.append(content[start:end].strip())
+        
         return pitches
     except Exception as e:
         print(f"Error generating pitches with Hugging Face: {str(e)}")
-        return f"Error: {str(e)}"
+        return [f"Error: {str(e)}"]
 
 def generate_pitches_openai(api_key, resume, job_description):
     client = OpenAI(api_key=api_key)
