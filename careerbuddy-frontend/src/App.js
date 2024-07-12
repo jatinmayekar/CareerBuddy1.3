@@ -216,6 +216,7 @@ const InvestorForm = () => {
 
 const CareerBuddy = () => {
   const [apiKey, setApiKey] = useState('');
+  const [apiType, setApiType] = useState('hf');
   const [resume, setResume] = useState('');
   const [resumeFile, setResumeFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
@@ -224,6 +225,15 @@ const CareerBuddy = () => {
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [trialUsed, setTrialUsed] = useState(0);
+
+  useEffect(() => {
+    // Load trial usage from localStorage
+    const storedTrialUsed = localStorage.getItem('trialUsed');
+    if (storedTrialUsed) {
+      setTrialUsed(parseInt(storedTrialUsed, 10));
+    }
+  }, []);
 
   const validateApiKey = async () => {
     try {
@@ -258,8 +268,67 @@ const CareerBuddy = () => {
     }
   };
 
+  // const handleGeneratePitch = async () => {
+  //   if (!apiKey) {
+  //     setError('Please enter your OpenAI API key.');
+  //     return;
+  //   }
+
+  //   if (!resumeFile && !resume) {
+  //     setError('Please provide a resume (either text or PDF file).');
+  //     return;
+  //   }
+
+  //   if (!jobDescription) {
+  //     setError('Please enter a job description.');
+  //     return;
+  //   }
+
+  //   setIsLoading(true);
+  //   setError('');
+  //   setDebugInfo('');
+
+  //   const isValidKey = await validateApiKey();
+  //   if (!isValidKey) {
+  //     setIsLoading(false);
+  //     return;
+  //   }
+
+  //   try {
+  //     let data;
+  //     let headers = {};
+      
+  //     if (resumeFile) {
+  //       data = new FormData();
+  //       data.append('apiKey', apiKey);
+  //       data.append('jobDescription', jobDescription);
+  //       data.append('resumeFile', resumeFile);
+  //       headers['Content-Type'] = 'multipart/form-data';
+  //     } else if (resume) {
+  //       data = { apiKey, jobDescription, resume };
+  //       headers['Content-Type'] = 'application/json';
+  //     } else {
+  //       throw new Error('Please provide a resume (either text or PDF file).');
+  //     }
+
+  //     const response = await axios.post(`${API_URL}/generate-pitches`, data, { headers });
+  //     setPitches(response.data.pitches);
+  //     setDebugInfo(JSON.stringify(response.data, null, 2));
+  //   } catch (err) {
+  //     console.error('Error generating pitches:', err);
+  //     setError(`Failed to generate pitches: ${err.response?.data?.error || err.message}`);
+  //     setDebugInfo(JSON.stringify(err.response?.data, null, 2));
+  //   }
+  //   setIsLoading(false);
+  // };
+
   const handleGeneratePitch = async () => {
-    if (!apiKey) {
+    if (trialUsed >= 3 && apiType === 'hf') {
+      setError('Trial expired. Please use OpenAI API or switch to the free Hugging Face option.');
+      return;
+    }
+
+    if (apiType === 'openai' && !apiKey) {
       setError('Please enter your OpenAI API key.');
       return;
     }
@@ -278,31 +347,33 @@ const CareerBuddy = () => {
     setError('');
     setDebugInfo('');
 
-    const isValidKey = await validateApiKey();
-    if (!isValidKey) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      let data;
-      let headers = {};
+      let data = new FormData();
+      data.append('apiType', apiType);
+      data.append('jobDescription', jobDescription);
       
       if (resumeFile) {
-        data = new FormData();
-        data.append('apiKey', apiKey);
-        data.append('jobDescription', jobDescription);
         data.append('resumeFile', resumeFile);
-        headers['Content-Type'] = 'multipart/form-data';
-      } else if (resume) {
-        data = { apiKey, jobDescription, resume };
-        headers['Content-Type'] = 'application/json';
       } else {
-        throw new Error('Please provide a resume (either text or PDF file).');
+        data.append('resume', resume);
       }
 
-      const response = await axios.post(`${API_URL}/generate-pitches`, data, { headers });
+      if (apiType === 'openai') {
+        data.append('apiKey', apiKey);
+      }
+
+      const response = await axios.post(`${API_URL}/generate-pitches`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+
       setPitches(response.data.pitches);
+      if (apiType === 'hf') {
+        const newTrialUsed = trialUsed + 1;
+        setTrialUsed(newTrialUsed);
+        localStorage.setItem('trialUsed', newTrialUsed.toString());
+      }
       setDebugInfo(JSON.stringify(response.data, null, 2));
     } catch (err) {
       console.error('Error generating pitches:', err);
@@ -316,24 +387,40 @@ const CareerBuddy = () => {
     <MockStreamlit>
       <h1 className="text-3xl font-bold mb-6">CareerBuddy: Your AI Career Fair Assistant</h1>
       
-      <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
-        <h2 className="text-xl font-semibold mb-2 text-blue-800">API Configuration</h2>
-        <Input
-          label="Enter your OpenAI API Key:"
-          type="password"
-          placeholder="sk-..."
-          value={apiKey}
-          //onChange={(e) => setApiKey(e.target.value)}
-          onChange={(e) => {
-            const apiKey = e.target.value;
-            setApiKey(apiKey);
-            //validateApiKey(apiKey);
-          }}
-        />
-        <p className="text-sm text-blue-600 mt-2">
-          Your API key is required to use GPT-4o for generating pitches. It's stored securely and never shared.
-        </p>
-      </div>
+      {trialUsed < 3 ? (
+        <div className="mb-4 bg-blue-100 p-2 rounded">
+          Hugging Face API Trial uses remaining: {3 - trialUsed}
+        </div>
+      ) : (
+        <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded-md">
+          <h2 className="text-xl font-semibold mb-2 text-yellow-800">Trial Expired</h2>
+          <p>Please choose an API to continue using CareerBuddy:</p>
+          <select
+            value={apiType}
+            onChange={(e) => setApiType(e.target.value)}
+            className="mt-2 p-2 border rounded"
+          >
+            <option value="hf">Hugging Face (Free, but less accurate)</option>
+            <option value="openai">OpenAI (Requires API Key, more accurate)</option>
+          </select>
+        </div>
+      )}
+      
+      {apiType === 'openai' && (
+        <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+          <h2 className="text-xl font-semibold mb-2 text-blue-800">API Configuration</h2>
+          <Input
+            label="Enter your OpenAI API Key:"
+            type="password"
+            placeholder="sk-..."
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+          <p className="text-sm text-blue-600 mt-2">
+            Your API key is required to use GPT-4o for generating pitches. It's stored securely and never shared.
+          </p>
+        </div>
+      )}
       
       <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
       <div className="mb-4">

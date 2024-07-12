@@ -9,11 +9,17 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import requests
+from functools import wraps
 
 app = Flask(__name__)
 #CORS(app)
 #CORS(app, resources={r"/*": {"origins": os.getenv('FRONTEND_URL', 'http://localhost:3000')}})
 CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
+
+HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+HF_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
+hf_headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
 
 SYSTEM_PROMPT = """Generate three distinct, concise, and compelling career fair pitches (each 30-60 seconds when spoken) based on the candidate's resume and the job description. Each pitch should:
 
@@ -62,7 +68,51 @@ def extract_text_from_pdf(pdf_file):
         print(f"Error reading PDF: {str(e)}")
         return None
 
-def generate_pitches(api_key, resume, job_description):
+# def generate_pitches(api_key, resume, job_description):
+#     client = OpenAI(api_key=api_key)
+#     try:
+#         chat_completion = client.chat.completions.create(
+#             model="gpt-4o",
+#             messages=[
+#                 {"role": "system", "content": SYSTEM_PROMPT},
+#                 {"role": "user", "content": f"Resume:\n{resume}\n\nJob Description:\n{job_description}"}
+#             ]
+#         )
+#         content = chat_completion.choices[0].message.content
+#         print(content)
+#         pitches = []
+#         for i in range(1, 4):
+#             start = content.find(f"[PITCH{i}]") + len(f"[PITCH{i}]")
+#             end = content.find(f"[/PITCH{i}]")
+#             if start != -1 and end != -1:
+#                 pitches.append(content[start:end].strip())
+#         return pitches
+#     except Exception as e:
+#         print(f"Error generating pitches: {str(e)}")
+#         return f"Error: {str(e)}"
+
+def generate_pitches_hf(resume, job_description):
+    try:
+        payload = {
+            "inputs": f"{SYSTEM_PROMPT}\n\nResume:\n{resume}\n\nJob Description:\n{job_description}",
+            "parameters": {"max_length": 1000}
+        }
+        response = requests.post(HF_API_URL, headers=hf_headers, json=payload)
+        response.raise_for_status()
+        content = response.json()[0]['generated_text']
+        
+        pitches = []
+        for i in range(1, 4):
+            start = content.find(f"[PITCH{i}]") + len(f"[PITCH{i}]")
+            end = content.find(f"[/PITCH{i}]")
+            if start != -1 and end != -1:
+                pitches.append(content[start:end].strip())
+        return pitches
+    except Exception as e:
+        print(f"Error generating pitches with Hugging Face: {str(e)}")
+        return f"Error: {str(e)}"
+
+def generate_pitches_openai(api_key, resume, job_description):
     client = OpenAI(api_key=api_key)
     try:
         chat_completion = client.chat.completions.create(
@@ -73,7 +123,6 @@ def generate_pitches(api_key, resume, job_description):
             ]
         )
         content = chat_completion.choices[0].message.content
-        print(content)
         pitches = []
         for i in range(1, 4):
             start = content.find(f"[PITCH{i}]") + len(f"[PITCH{i}]")
@@ -82,7 +131,7 @@ def generate_pitches(api_key, resume, job_description):
                 pitches.append(content[start:end].strip())
         return pitches
     except Exception as e:
-        print(f"Error generating pitches: {str(e)}")
+        print(f"Error generating pitches with OpenAI: {str(e)}")
         return f"Error: {str(e)}"
 
 # Add home route
@@ -106,39 +155,72 @@ def api_validate_api_key():
     print(f"API key is valid: {is_valid}")
     return jsonify({"isValid": is_valid})
 
+# @app.route('/generate-pitches', methods=['POST'])
+# def api_generate_pitches():
+#     try:
+#         if request.is_json:
+#             data = request.json
+#             resume = data.get('resume', '')
+#             job_description = data.get('jobDescription', '')
+#             api_key = data.get('apiKey', '')
+#         else:
+#             data = request.form
+#             resume = data.get('resume', '')
+#             job_description = data.get('jobDescription', '')
+#             api_key = data.get('apiKey', '')
+#             if 'resumeFile' in request.files:
+#                 pdf_file = request.files['resumeFile'].read()
+#                 resume_text = extract_text_from_pdf(pdf_file)
+#                 if resume_text is None:
+#                     return jsonify({"error": "Failed to read PDF file"}), 400
+#                 resume = resume_text
+        
+#         if not job_description or not api_key:
+#             return jsonify({"error": "Job description and API key are required"}), 400
+
+#         if not resume:
+#             return jsonify({"error": "Resume text or file is required"}), 400
+
+#         pitches = generate_pitches(api_key, resume, job_description)
+#         return jsonify({"pitches": pitches})
+#     except Exception as e:
+#         print(f"Unexpected error: {str(e)}")
+#         print(traceback.format_exc())
+#         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
 @app.route('/generate-pitches', methods=['POST'])
 def api_generate_pitches():
     try:
-        if request.is_json:
-            data = request.json
-            resume = data.get('resume', '')
-            job_description = data.get('jobDescription', '')
-            api_key = data.get('apiKey', '')
-        else:
-            data = request.form
-            resume = data.get('resume', '')
-            job_description = data.get('jobDescription', '')
-            api_key = data.get('apiKey', '')
-            if 'resumeFile' in request.files:
-                pdf_file = request.files['resumeFile'].read()
-                resume_text = extract_text_from_pdf(pdf_file)
-                if resume_text is None:
-                    return jsonify({"error": "Failed to read PDF file"}), 400
-                resume = resume_text
+        data = request.json if request.is_json else request.form
+        resume = data.get('resume', '')
+        job_description = data.get('jobDescription', '')
+        api_key = data.get('apiKey')
+        api_type = data.get('apiType', 'hf')  # 'hf' for Hugging Face, 'openai' for OpenAI
         
-        if not job_description or not api_key:
-            return jsonify({"error": "Job description and API key are required"}), 400
+        if 'resumeFile' in request.files:
+            pdf_file = request.files['resumeFile'].read()
+            resume_text = extract_text_from_pdf(pdf_file)
+            if resume_text is None:
+                return jsonify({"error": "Failed to read PDF file"}), 400
+            resume = resume_text
+        
+        if not job_description or not resume:
+            return jsonify({"error": "Both job description and resume are required"}), 400
 
-        if not resume:
-            return jsonify({"error": "Resume text or file is required"}), 400
+        if api_type == 'openai' and not api_key:
+            return jsonify({"error": "API key is required for OpenAI"}), 400
 
-        pitches = generate_pitches(api_key, resume, job_description)
+        if api_type == 'openai':
+            pitches = generate_pitches_openai(api_key, resume, job_description)
+        else:
+            pitches = generate_pitches_hf(resume, job_description)
+
         return jsonify({"pitches": pitches})
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
-    
+
 @app.route('/submit-investor-form', methods=['POST'])
 def submit_investor_form():
     try:
