@@ -235,29 +235,29 @@ const CareerBuddy = () => {
     }
   }, []);
 
-  const validateApiKey = async () => {
-    try {
-      const response = await axios.post(`${API_URL}/validate-api-key`, { apiKey });
-      return response.data.isValid;
-    } catch (err) {
-      console.error('Error validating API key:', err);
-      if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Error data:', err.response.data);
-        console.error('Error status:', err.response.status);
-        console.error('Error headers:', err.response.headers);
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error('Error request:', err.request);
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Error message:', err.message);
-      }
-      setError(`Error validating API key: ${err.message}`);
-      return false;
-    }
-  };
+  // const validateApiKey = async () => {
+  //   try {
+  //     const response = await axios.post(`${API_URL}/validate-api-key`, { apiKey });
+  //     return response.data.isValid;
+  //   } catch (err) {
+  //     console.error('Error validating API key:', err);
+  //     if (err.response) {
+  //       // The request was made and the server responded with a status code
+  //       // that falls out of the range of 2xx
+  //       console.error('Error data:', err.response.data);
+  //       console.error('Error status:', err.response.status);
+  //       console.error('Error headers:', err.response.headers);
+  //     } else if (err.request) {
+  //       // The request was made but no response was received
+  //       console.error('Error request:', err.request);
+  //     } else {
+  //       // Something happened in setting up the request that triggered an Error
+  //       console.error('Error message:', err.message);
+  //     }
+  //     setError(`Error validating API key: ${err.message}`);
+  //     return false;
+  //   }
+  // };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
