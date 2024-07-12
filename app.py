@@ -106,7 +106,7 @@ def generate_pitches_openai(api_key, resume, job_description):
     client = OpenAI(api_key=api_key)
     try:
         chat_completion = client.chat.completions.create(
-            model="gpt-4o",  # Updated to use GPT-4o
+            model="gpt-3.5-turbo-0125",  # Updated to use GPT-4o
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Resume:\n{resume}\n\nJob Description:\n{job_description}"}
