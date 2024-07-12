@@ -14,11 +14,8 @@ from functools import wraps
 import json
 
 app = Flask(__name__)
-#CORS(app)
-#CORS(app, resources={r"/*": {"origins": os.getenv('FRONTEND_URL', 'http://localhost:3000')}})
 CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
-#HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct"
 HF_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
 hf_headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
@@ -71,29 +68,6 @@ def extract_text_from_pdf(pdf_file):
     except Exception as e:
         print(f"Error reading PDF: {str(e)}")
         return None
-
-# def generate_pitches(api_key, resume, job_description):
-#     client = OpenAI(api_key=api_key)
-#     try:
-#         chat_completion = client.chat.completions.create(
-#             model="gpt-4o",
-#             messages=[
-#                 {"role": "system", "content": SYSTEM_PROMPT},
-#                 {"role": "user", "content": f"Resume:\n{resume}\n\nJob Description:\n{job_description}"}
-#             ]
-#         )
-#         content = chat_completion.choices[0].message.content
-#         print(content)
-#         pitches = []
-#         for i in range(1, 4):
-#             start = content.find(f"[PITCH{i}]") + len(f"[PITCH{i}]")
-#             end = content.find(f"[/PITCH{i}]")
-#             if start != -1 and end != -1:
-#                 pitches.append(content[start:end].strip())
-#         return pitches
-#     except Exception as e:
-#         print(f"Error generating pitches: {str(e)}")
-#         return f"Error: {str(e)}"
 
 def generate_pitches_hf(resume, job_description):
     try:
@@ -158,7 +132,7 @@ def generate_pitches_openai(api_key, resume, job_description):
     client = OpenAI(api_key=api_key)
     try:
         chat_completion = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o",  # Updated to use GPT-4o
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Resume:\n{resume}\n\nJob Description:\n{job_description}"}
@@ -174,7 +148,7 @@ def generate_pitches_openai(api_key, resume, job_description):
         return pitches
     except Exception as e:
         print(f"Error generating pitches with OpenAI: {str(e)}")
-        return f"Error: {str(e)}"
+        return [f"Error: {str(e)}"]
 
 # Add home route
 @app.route('/')
@@ -197,38 +171,12 @@ def api_validate_api_key():
     print(f"API key is valid: {is_valid}")
     return jsonify({"isValid": is_valid})
 
-# @app.route('/generate-pitches', methods=['POST'])
-# def api_generate_pitches():
-#     try:
-#         if request.is_json:
-#             data = request.json
-#             resume = data.get('resume', '')
-#             job_description = data.get('jobDescription', '')
-#             api_key = data.get('apiKey', '')
-#         else:
-#             data = request.form
-#             resume = data.get('resume', '')
-#             job_description = data.get('jobDescription', '')
-#             api_key = data.get('apiKey', '')
-#             if 'resumeFile' in request.files:
-#                 pdf_file = request.files['resumeFile'].read()
-#                 resume_text = extract_text_from_pdf(pdf_file)
-#                 if resume_text is None:
-#                     return jsonify({"error": "Failed to read PDF file"}), 400
-#                 resume = resume_text
-        
-#         if not job_description or not api_key:
-#             return jsonify({"error": "Job description and API key are required"}), 400
-
-#         if not resume:
-#             return jsonify({"error": "Resume text or file is required"}), 400
-
-#         pitches = generate_pitches(api_key, resume, job_description)
-#         return jsonify({"pitches": pitches})
-#     except Exception as e:
-#         print(f"Unexpected error: {str(e)}")
-#         print(traceback.format_exc())
-#         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+@app.route('/validate-dev-key', methods=['POST'])
+def validate_dev_key():
+    data = request.json
+    dev_key = data.get('devKey', '')
+    is_valid = dev_key == DEV_SECRET
+    return jsonify({"isValid": is_valid})
 
 @app.route('/generate-pitches', methods=['POST'])
 def api_generate_pitches():
@@ -239,7 +187,6 @@ def api_generate_pitches():
         api_type = data.get('apiType', 'hf')
         dev_key = data.get('devKey', '')
         
-        # Check for developer mode
         is_dev_mode = dev_key == DEV_SECRET
 
         if 'resumeFile' in request.files:

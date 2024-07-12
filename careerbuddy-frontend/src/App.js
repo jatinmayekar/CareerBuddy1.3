@@ -230,7 +230,6 @@ const CareerBuddy = () => {
   const [isDevMode, setIsDevMode] = useState(false);
 
   useEffect(() => {
-    // Load trial usage from localStorage only if not in dev mode
     if (!isDevMode) {
       const storedTrialUsed = localStorage.getItem('trialUsed');
       if (storedTrialUsed) {
@@ -238,30 +237,6 @@ const CareerBuddy = () => {
       }
     }
   }, [isDevMode]);
-
-  // const validateApiKey = async () => {
-  //   try {
-  //     const response = await axios.post(`${API_URL}/validate-api-key`, { apiKey });
-  //     return response.data.isValid;
-  //   } catch (err) {
-  //     console.error('Error validating API key:', err);
-  //     if (err.response) {
-  //       // The request was made and the server responded with a status code
-  //       // that falls out of the range of 2xx
-  //       console.error('Error data:', err.response.data);
-  //       console.error('Error status:', err.response.status);
-  //       console.error('Error headers:', err.response.headers);
-  //     } else if (err.request) {
-  //       // The request was made but no response was received
-  //       console.error('Error request:', err.request);
-  //     } else {
-  //       // Something happened in setting up the request that triggered an Error
-  //       console.error('Error message:', err.message);
-  //     }
-  //     setError(`Error validating API key: ${err.message}`);
-  //     return false;
-  //   }
-  // };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -272,62 +247,25 @@ const CareerBuddy = () => {
     }
   };
 
-  // const handleGeneratePitch = async () => {
-  //   if (!apiKey) {
-  //     setError('Please enter your OpenAI API key.');
-  //     return;
-  //   }
-
-  //   if (!resumeFile && !resume) {
-  //     setError('Please provide a resume (either text or PDF file).');
-  //     return;
-  //   }
-
-  //   if (!jobDescription) {
-  //     setError('Please enter a job description.');
-  //     return;
-  //   }
-
-  //   setIsLoading(true);
-  //   setError('');
-  //   setDebugInfo('');
-
-  //   const isValidKey = await validateApiKey();
-  //   if (!isValidKey) {
-  //     setIsLoading(false);
-  //     return;
-  //   }
-
-  //   try {
-  //     let data;
-  //     let headers = {};
-      
-  //     if (resumeFile) {
-  //       data = new FormData();
-  //       data.append('apiKey', apiKey);
-  //       data.append('jobDescription', jobDescription);
-  //       data.append('resumeFile', resumeFile);
-  //       headers['Content-Type'] = 'multipart/form-data';
-  //     } else if (resume) {
-  //       data = { apiKey, jobDescription, resume };
-  //       headers['Content-Type'] = 'application/json';
-  //     } else {
-  //       throw new Error('Please provide a resume (either text or PDF file).');
-  //     }
-
-  //     const response = await axios.post(`${API_URL}/generate-pitches`, data, { headers });
-  //     setPitches(response.data.pitches);
-  //     setDebugInfo(JSON.stringify(response.data, null, 2));
-  //   } catch (err) {
-  //     console.error('Error generating pitches:', err);
-  //     setError(`Failed to generate pitches: ${err.response?.data?.error || err.message}`);
-  //     setDebugInfo(JSON.stringify(err.response?.data, null, 2));
-  //   }
-  //   setIsLoading(false);
-  // };
+  const activateDevMode = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/validate-dev-key`, { devKey });
+      if (response.data.isValid) {
+        setIsDevMode(true);
+        setTrialUsed(0);
+        localStorage.removeItem('trialUsed');
+        setError('');
+      } else {
+        setError('Invalid developer key.');
+      }
+    } catch (err) {
+      setError('Failed to validate developer key.');
+      console.error(err);
+    }
+  };
 
   const handleGeneratePitch = async () => {
-    if (trialUsed >= 3 && apiType === 'hf' && !isDevMode) {
+    if (!isDevMode && trialUsed >= 3 && apiType === 'hf') {
       setError('Trial expired. Please use OpenAI API or switch to the free Hugging Face option.');
       return;
     }
@@ -374,7 +312,6 @@ const CareerBuddy = () => {
       });
 
       setPitches(response.data.pitches);
-      setIsDevMode(response.data.devMode);
       
       if (apiType === 'hf' && !isDevMode) {
         const newTrialUsed = trialUsed + 1;
@@ -441,6 +378,9 @@ const CareerBuddy = () => {
           value={devKey}
           onChange={(e) => setDevKey(e.target.value)}
         />
+        <Button onClick={activateDevMode} disabled={isLoading}>
+          Activate Developer Mode
+        </Button>
       </div>
       
       <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
