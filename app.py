@@ -85,7 +85,7 @@ def generate_pitches_hf(resume, job_description):
         for message in client.chat_completion(
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1000,
-            stream=True,
+            stream=False,
         ):
             full_response += message.choices[0].delta.content or ""
 
