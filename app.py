@@ -192,7 +192,7 @@ def api_generate_pitches():
         if api_type == 'openai':
             pitches = generate_pitches_openai(api_key, resume, job_description)
         else:
-            pitches = generate_pitches_hf(api_key, resume, job_description)
+            pitches = generate_pitches_hf(resume, job_description)
 
         if not is_dev_mode and not user_api_key:
             user_trials[user_id][api_type] += 1
