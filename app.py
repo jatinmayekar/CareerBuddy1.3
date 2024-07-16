@@ -19,8 +19,7 @@ from huggingface_hub import InferenceClient
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
-HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct"
-#HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 HF_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
 hf_headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -80,7 +79,7 @@ def extract_text_from_pdf(pdf_file):
 def generate_pitches_hf(resume, job_description):
     try:
         client = InferenceClient(
-            "meta-llama/Meta-Llama-3-70B-Instruct",
+            "meta-llama/Meta-Llama-3-8B-Instruct",
             token=HF_API_TOKEN,
         )
         
