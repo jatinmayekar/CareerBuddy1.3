@@ -228,6 +228,7 @@ const CareerBuddy = () => {
   const [trialUsed, setTrialUsed] = useState(0);
   const [devKey, setDevKey] = useState('');
   const [isDevMode, setIsDevMode] = useState(false);
+  const [userId, setUserId] = useState('');
 
   useEffect(() => {
     if (!isDevMode) {
@@ -236,7 +237,10 @@ const CareerBuddy = () => {
         setTrialUsed(parseInt(storedTrialUsed, 10));
       }
     }
-  }, [isDevMode]);
+
+    // Generate a random user ID for demo purposes
+    setUserId(Math.random().toString(36).substring(7));
+  }, [isDevMode], []);
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -308,10 +312,12 @@ const CareerBuddy = () => {
       const response = await axios.post(`${API_URL}/generate-pitches`, data, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'User-ID': userId
         }
       });
 
       setPitches(response.data.pitches);
+      setTrialUsed(prevTrialUsed => prevTrialUsed + 1);
       
       if (apiType === 'hf' && !isDevMode) {
         const newTrialUsed = trialUsed + 1;
@@ -324,6 +330,9 @@ const CareerBuddy = () => {
       console.error('Error generating pitches:', err);
       setError(`Failed to generate pitches: ${err.response?.data?.error || err.message}`);
       setDebugInfo(JSON.stringify(err.response?.data, null, 2));
+      if (err.response?.status === 403) {
+        setTrialUsed(3);  // Trial expired
+      }
     }
     setIsLoading(false);
   };
@@ -334,7 +343,7 @@ const CareerBuddy = () => {
       
       {!isDevMode && trialUsed < 3 ? (
         <div className="mb-4 bg-blue-100 p-2 rounded">
-          Hugging Face API Trial uses remaining: {3 - trialUsed}
+          Trial uses remaining: {3 - trialUsed}
         </div>
       ) : (
         <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded-md">
@@ -347,8 +356,8 @@ const CareerBuddy = () => {
             onChange={(e) => setApiType(e.target.value)}
             className="mt-2 p-2 border rounded"
           >
-            <option value="hf">Hugging Face (Free, but less accurate)</option>
-            <option value="openai">OpenAI (Requires API Key, more accurate)</option>
+            <option value="hf">Hugging Face (Requires API key)</option>
+            <option value="openai">OpenAI (Requires API Key)</option>
           </select>
         </div>
       )}

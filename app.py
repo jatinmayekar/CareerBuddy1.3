@@ -19,12 +19,16 @@ from huggingface_hub import InferenceClient
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
-#HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct"
-HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct"
+#HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 HF_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
 hf_headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 DEV_SECRET = os.getenv('DEV_SECRET')
+
+# In-memory storage for demo purposes. Replace with a database in production.
+user_trials = {}
 
 SYSTEM_PROMPT = """Generate three distinct, concise, and compelling career fair pitches (each 30-60 seconds when spoken) based on the candidate's resume and the job description. Each pitch should:
 
@@ -106,7 +110,7 @@ def generate_pitches_openai(api_key, resume, job_description):
     client = OpenAI(api_key=api_key)
     try:
         chat_completion = client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",  # Updated to use GPT-4o
+            model="gpt-3.5-turbo-0125",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Resume:\n{resume}\n\nJob Description:\n{job_description}"}
@@ -158,7 +162,9 @@ def api_generate_pitches():
         data = request.json if request.is_json else request.form
         resume = data.get('resume', '')
         job_description = data.get('jobDescription', '')
-        api_type = data.get('apiType', 'hf')
+        api_type = data.get('apiType', 'openai')
+        user_api_key = data.get('apiKey', '')
+        user_id = data.get('userId', '')
         dev_key = data.get('devKey', '')
         
         is_dev_mode = dev_key == DEV_SECRET
@@ -172,16 +178,33 @@ def api_generate_pitches():
         
         if not job_description or not resume:
             return jsonify({"error": "Both job description and resume are required"}), 400
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+
+        if user_id not in user_trials:
+            user_trials[user_id] = {"openai": 0, "hf": 0}
+
+        if not is_dev_mode and user_trials[user_id][api_type] >= 2 and not user_api_key:
+            return jsonify({"error": f"Free trials for {api_type.upper()} API exhausted. Please provide your own API key."}), 403
+
+        api_key = user_api_key if user_api_key else (OPENAI_API_KEY if api_type == 'openai' else HF_API_TOKEN)
 
         if api_type == 'openai':
-            api_key = data.get('apiKey')
-            if not api_key:
-                return jsonify({"error": "API key is required for OpenAI"}), 400
             pitches = generate_pitches_openai(api_key, resume, job_description)
         else:
-            pitches = generate_pitches_hf(resume, job_description)
+            pitches = generate_pitches_hf(api_key, resume, job_description)
 
-        return jsonify({"pitches": pitches, "devMode": is_dev_mode})
+        if not is_dev_mode and not user_api_key:
+            user_trials[user_id][api_type] += 1
+
+        return jsonify({"pitches": pitches, 
+                        "devMode": is_dev_mode,
+                        "trialsRemaining": {
+                            "openai": max(0, 2 - user_trials[user_id]['openai']),
+                            "hf": max(0, 2 - user_trials[user_id]['hf'])
+                        }
+            })
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
