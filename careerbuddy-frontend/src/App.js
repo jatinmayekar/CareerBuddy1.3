@@ -298,6 +298,7 @@ const CareerBuddy = () => {
       data.append('apiType', apiType);
       data.append('jobDescription', jobDescription);
       data.append('devKey', devKey);
+      data.append('userId', userId);
       
       if (resumeFile) {
         data.append('resumeFile', resumeFile);
