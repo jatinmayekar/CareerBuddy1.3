@@ -1,0 +1,1 @@
+if output is null, then do not count the trial

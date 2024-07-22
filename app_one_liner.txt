@@ -1,0 +1,1 @@
+CareerBuddy: an AI webapp to craft personalized pitches at career fairs. Enter you resume and job description to get instant pitch to show how your skills and experience align with the job requirements
