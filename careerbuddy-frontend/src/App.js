@@ -358,18 +358,23 @@ const CareerBuddy = () => {
           localStorage.setItem("trialUsed", newTrialUsed.toString());
         }
       } else {
-        setError("Failed to generate valid pitches. Please try again.");
+        throw new Error("Failed to generate valid pitches. Please try again.");
       }
-  
-      setDebugInfo(JSON.stringify(response.data, null, 2));
     } catch (err) {
       console.error("Error generating pitches:", err);
-      setError(
-        `Failed to generate pitches: ${err.response?.data?.error || err.message}`
-      );
-      setDebugInfo(JSON.stringify(err.response?.data, null, 2));
-      if (err.response?.status === 403) {
+      setError(err.response?.data?.error || err.message || "Failed to generate pitches. Please try again.");
+      
+      // If it's a server error (5xx), don't update the trial count
+      if (err.response && err.response.status >= 500) {
+        console.log("Server error occurred. Trial count not updated.");
+      } else if (err.response?.status === 403) {
         setTrialUsed(3); // Trial expired
+        localStorage.setItem("trialUsed", "3");
+      } else if (isTrialMode) {
+        // For other errors in trial mode, increment the trial count
+        const newTrialUsed = Math.min(trialUsed + 1, 3);
+        setTrialUsed(newTrialUsed);
+        localStorage.setItem("trialUsed", newTrialUsed.toString());
       }
     }
     setIsLoading(false);
