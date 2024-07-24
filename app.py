@@ -20,12 +20,7 @@ app = Flask(__name__)
 CORS(app, resources={
      r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
-HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
-HF_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
-hf_headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
-DEV_SECRET = os.getenv('DEV_SECRET')
 
 debugLevel = 3 # Debugging level : 3 for in-depth
 
@@ -78,14 +73,15 @@ def extract_text_from_pdf(pdf_file):
         for page in pdf_reader.pages:
             text += page.extract_text()
         #if debugLevel == 3:
-        print("Extracted text:", text[:100])
+        #print("Extracted text:", text[:100])
         return text
     except Exception as e:
         print(f"Error reading PDF: {str(e)}")
         return None
 
 
-def generate_pitches_hf(resume, job_description, model_name, hf_token):
+def generate_pitches_hf(hf_token, model_name, resume, job_description):
+    print(f"Received HF API key: {hf_token[:5]}...") # Print first 5 characters for security
     try:
         client = InferenceClient(
             model=model_name,
@@ -145,7 +141,6 @@ def generate_pitches_openai(api_key, resume, job_description):
 def home():
     return "Welcome to CareerBuddy API!"
 
-
 @app.route('/validate-api-key', methods=['POST'])
 def api_validate_api_key():
     print("Received request to validate API key")
@@ -162,20 +157,11 @@ def api_validate_api_key():
     print(f"API key is valid: {is_valid}")
     return jsonify({"isValid": is_valid})
 
-
-@app.route('/validate-dev-key', methods=['POST'])
-def validate_dev_key():
-    data = request.json
-    dev_key = data.get('devKey', '')
-    is_valid = dev_key == DEV_SECRET
-    return jsonify({"isValid": is_valid})
-
-
 @app.route('/generate-pitches', methods=['POST'])
 def api_generate_pitches():
     try:
-        print("Request form data:", request.form)
-        print("Request files:", request.files)
+        #print("Request form data:", request.form)
+        #print("Request files:", request.files)
         
         # Don't try to access request.json for multipart form data
         if request.content_type.startswith('multipart/form-data'):
@@ -187,13 +173,14 @@ def api_generate_pitches():
 
         resume = ''
         job_description = ''
+        is_trial_mode = data.get('isTrialMode') == 'true'
         api_type = data.get('apiType', 'openai')
         user_api_key = data.get('apiKey', '')
-        model_name = data.get('modelName', 'meta-llama/Meta-Llama-3-70B-Instruct')
         user_id = data.get('userId', '')
-        dev_key = data.get('devKey', '')
+        model_name = data.get('modelName', 'meta-llama/Meta-Llama-3-8B-Instruct')
 
-        is_dev_mode = dev_key == DEV_SECRET
+        print(f"Received API Type: {api_type}")
+        print(f"Received API key (first 5 chars): {user_api_key[:5]}...")
 
         # Handle file uploads for resume
         if 'resumeFile' in request.files:
@@ -223,34 +210,32 @@ def api_generate_pitches():
 
         # Initialize user trials if not exists
         if user_id not in user_trials:
-            user_trials[user_id] = 0
+            user_trials[user_id] = 3
 
-        # Check for OpenAI trial usage
-        if user_trials[user_id] >= 3 and not is_dev_mode:
-            return jsonify(
-                {"error": "Free trials are exhausted. Please provide your own API key."}), 403
-        elif user_trials[user_id] < 3:
-            user_trials[user_id] += 1
+        #print(f"user trials: {user_trials[user_id]}\n")
+        if is_trial_mode:
+            if user_trials[user_id] <= 0:
+                return jsonify({"error": "Free trials are exhausted. Please provide your own API key."}), 403
             api_key = OPENAI_API_KEY
-        elif api_type == 'openai':
-            api_key = user_api_key
-        elif api_type == 'hf':
-            if not user_api_key:
-                return jsonify(
-                    {"error": "Hugging Face token is required"}), 400
-            api_key = user_api_key
+            user_trials[user_id] -= 1
+            api_type = 'openai'
         else:
-            return jsonify({"error": "Invalid API type"}), 400
+            api_key = user_api_key
 
         # Generate pitches based on API type
         if api_type == 'openai':
             pitches = generate_pitches_openai(api_key, resume, job_description)
+        elif api_type == 'hf':
+            pitches = generate_pitches_hf(api_key, model_name, resume, job_description)
         else:
-            pitches = generate_pitches_hf(
-                resume, job_description, model_name, api_key)
+            return jsonify({"error": "Invalid API type"}), 400
 
-        return jsonify({"pitches": pitches, "devMode": is_dev_mode, "trialsRemaining": max(
-            0, 3 - user_trials[user_id]) if api_type == 'openai' else 0})
+        # if pitches == []
+        
+        return jsonify({
+            "pitches": pitches, 
+            "trialsRemaining": max(0, user_trials[user_id])
+        })
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         print(traceback.format_exc())

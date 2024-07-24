@@ -25,21 +25,6 @@ const Button = ({ children, onClick, disabled }) => (
   </button>
 );
 
-const TextArea = ({ label, placeholder, value, onChange }) => (
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      {label}
-    </label>
-    <textarea
-      className="w-full p-2 border border-gray-300 rounded"
-      rows="4"
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-    ></textarea>
-  </div>
-);
-
 const Icon = ({ d }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -262,14 +247,13 @@ const InvestorForm = () => {
 };
 
 const CareerBuddy = () => {
-  const [apiKey, setApiKey] = useState("");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [hfApiKey, setHfApiKey] = useState("");
   const [apiType, setApiType] = useState("openai");
   const [modelName, setModelName] = useState(
-    "meta-llama/Meta-Llama-3-70B-Instruct",
+    "meta-llama/Meta-Llama-3-8B-Instruct",
   );
-  const [resume, setResume] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
-  const [jobDescription, setJobDescription] = useState("");
   const [jobDescriptionFile, setJobDescriptionFile] = useState(null);
   const [pitches, setPitches] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -277,17 +261,14 @@ const CareerBuddy = () => {
   const [debugInfo, setDebugInfo] = useState("");
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [trialUsed, setTrialUsed] = useState(0);
-  const [devKey, setDevKey] = useState("");
-  const [isDevMode, setIsDevMode] = useState(false);
   const [userId, setUserId] = useState("");
+  const [isTrialMode, setIsTrialMode] = useState(true);
 
   useEffect(
     () => {
-      if (!isDevMode) {
-        const storedTrialUsed = localStorage.getItem("trialUsed");
-        if (storedTrialUsed) {
-          setTrialUsed(parseInt(storedTrialUsed, 10));
-        }
+      const storedTrialUsed = localStorage.getItem("trialUsed");
+      if (storedTrialUsed) {
+        setTrialUsed(parseInt(storedTrialUsed, 10));
       }
 
       // Generate a random user ID for demo purposes
@@ -298,8 +279,14 @@ const CareerBuddy = () => {
         setApiType("openai");
       }
     },
-    [isDevMode, trialUsed]
+    [trialUsed]
   );
+
+  useEffect(() => {
+    console.log("Current API Type:", apiType);
+    console.log("OpenAI API Key (first 5 chars):", openaiApiKey.substring(0, 5));
+    console.log("HF API Key (first 5 chars):", hfApiKey.substring(0, 5));
+  }, [apiType, openaiApiKey, hfApiKey]);
 
   const handleFileUpload = (event, setFile) => {
     const file = event.target.files[0];
@@ -310,32 +297,13 @@ const CareerBuddy = () => {
     }
   };
 
-  const activateDevMode = async () => {
-    try {
-      const response = await axios.post(`${API_URL}/validate-dev-key`, {
-        devKey,
-      });
-      if (response.data.isValid) {
-        setIsDevMode(true);
-        setTrialUsed(0);
-        localStorage.removeItem("trialUsed");
-        setError("");
-      } else {
-        setError("Invalid developer key.");
-      }
-    } catch (err) {
-      setError("Failed to validate developer key.");
-      console.error(err);
-    }
-  };
-
   const handleGeneratePitch = async () => {
-    if (!isDevMode && trialUsed >= 3 && apiType === "openai" && !apiKey) {
+    if (trialUsed >= 3 && apiType === "openai" && !openaiApiKey) {
       setError("Trial expired. Please enter your OpenAI API key to continue.");
       return;
     }
   
-    if (apiType === "hf" && !apiKey) {
+    if (apiType === "hf" && !hfApiKey) {
       setError("Please enter your Hugging Face API key.");
       return;
     }
@@ -356,17 +324,15 @@ const CareerBuddy = () => {
   
     try {
       let data = new FormData();
-      data.append("apiType", apiType);
-      data.append("apiKey", apiKey);
-      data.append("devKey", devKey);
+      data.append("isTrialMode", isTrialMode);
+      data.append("apiType", isTrialMode ? "openai" : apiType);
+      data.append("apiKey", isTrialMode ? "" : (apiType === "openai" ? openaiApiKey : hfApiKey));
       data.append("userId", userId);
-  
-      if (apiType === "hf") {
-        data.append("modelName", modelName);
-      }
-  
       data.append("resumeFile", resumeFile);
       data.append("jobDescriptionFile", jobDescriptionFile);
+      if (!isTrialMode && apiType === "hf") {
+        data.append("modelName", modelName);
+      }
   
       const response = await axios.post(`${API_URL}/generate-pitches`, data, {
         headers: {
@@ -378,7 +344,7 @@ const CareerBuddy = () => {
       setPitches(response.data.pitches);
       setTrialUsed((prevTrialUsed) => prevTrialUsed + 1);
   
-      if (apiType === "openai" && !isDevMode) {
+      if (apiType === "openai") {
         const newTrialUsed = trialUsed + 1;
         setTrialUsed(newTrialUsed);
         localStorage.setItem("trialUsed", newTrialUsed.toString());
@@ -404,100 +370,88 @@ const CareerBuddy = () => {
         CareerBuddy: Your AI Career Fair Assistant
       </h1>
 
-      {!isDevMode && (
-        <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
-          {trialUsed < 3 ? (
-            <div className="mb-4">
-              Trial uses remaining: {3 - trialUsed}
-              <p>Using OpenAI API for trial period</p>
-            </div>
-          ) : (
-            <div>
-              <h2 className="text-xl font-semibold mb-2 text-yellow-800">
-                Trial Expired
+      <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+        <button
+          onClick={() => setIsTrialMode(!isTrialMode)}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors mb-4"
+        >
+          {isTrialMode ? "Deactivate Trial" : "Activate Trial"}
+        </button>
+        
+        {isTrialMode ? (
+          <div>
+            <p className="font-semibold">Trial Mode Active</p>
+            <p>Using OpenAI API for trial period</p>
+            {trialUsed < 3 ? (
+              <p>Trial uses remaining: {3 - trialUsed}</p>
+            ) : (
+              <p className="text-yellow-800">Trial uses exhausted. Please provide your own API key.</p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <p className="font-semibold">Choose an API:</p>
+            <select
+              value={apiType}
+              onChange={(e) => setApiType(e.target.value)}
+              className="mt-2 p-2 border rounded"
+            >
+              <option value="openai">OpenAI (Requires API Key)</option>
+              <option value="hf">Hugging Face (Requires API key)</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      {!isTrialMode && (
+        <>
+          {apiType === "openai" && (
+            <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+              <h2 className="text-xl font-semibold mb-2 text-blue-800">
+                OpenAI
               </h2>
-              <p>Please choose an API to continue using CareerBuddy:</p>
-              <select
-                value={apiType}
-                onChange={(e) => setApiType(e.target.value)}
-                className="mt-2 p-2 border rounded"
-              >
-                <option value="hf">Hugging Face (Requires API key)</option>
-                <option value="openai">OpenAI (Requires API Key)</option>
-              </select>
+              <label className="block mb-2">API Key</label>
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+              />
+              <p className="text-sm text-blue-600 mt-2">
+                Your API key is required to use GPT-4 for generating pitches. It's
+                stored securely and never shared.
+              </p>
             </div>
           )}
-        </div>
+
+          {apiType === "hf" && (
+            <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+              <h2 className="text-xl font-semibold mb-2 text-blue-800">
+                Hugging Face
+              </h2>
+              <label className="block mb-2">API Key</label>
+              <Input
+                type="password"
+                placeholder="hf_..."
+                value={hfApiKey}
+                onChange={(e) => setHfApiKey(e.target.value)}
+              />
+              <label className="block mb-2">Model Name</label>
+              <input
+                type="text"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="e.g., meta-llama/Meta-Llama-3-8B-Instruct"
+              />
+              <p className="text-sm text-blue-600 mt-2">
+                Your API key is required to generate pitches. It's
+                stored securely and never shared.
+              </p>
+            </div>
+          )}
+        </>
       )}
-
-      {(isDevMode || trialUsed >= 3) && (
-              <>
-                {apiType === "openai" && (
-                  <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
-                    <h2 className="text-xl font-semibold mb-2 text-blue-800">
-                      OpenAI
-                    </h2>
-                    <label className="block mb-2">API Key</label>
-                    <Input
-                      type="password"
-                      placeholder="sk-..."
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                    />
-                    <p className="text-sm text-blue-600 mt-2">
-                      Your API key is required to use GPT-4o for generating pitches. It's
-                      stored securely and never shared.
-                    </p>
-                  </div>
-                )}
-
-                {apiType === "hf" && (
-                  <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
-                    <h2 className="text-xl font-semibold mb-2 text-blue-800">
-                      Hugging Face
-                    </h2>
-                    <label className="block mb-2">API Key</label>
-                    <Input
-                      type="password"
-                      placeholder="hf_..."
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                    />
-                    <label className="block mb-2">Model Name</label>
-                    <input
-                      type="text"
-                      value={modelName}
-                      onChange={(e) => setModelName(e.target.value)}
-                      className="w-full p-2 border rounded"
-                      placeholder="e.g., meta-llama/Meta-Llama-3-70B-Instruct"
-                    />
-                    <p className="text-sm text-blue-600 mt-2">
-                      Your API key is required to generate pitches. It's
-                      stored securely and never shared.
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-
-
-      
-      {/* <div className="mb-6 bg-gray-100 border-l-4 border-gray-500 p-4 rounded-md"> 
-        <h2 className="text-xl font-semibold mb-2 text-gray-800">
-          Developer Mode
-        </h2>
-        <Input
-          label="Enter Developer Key:"
-          type="password"
-          placeholder="Dev key..."
-          value={devKey}
-          onChange={(e) => setDevKey(e.target.value)}
-        />
-        <Button onClick={activateDevMode} disabled={isLoading}>
-          Activate Developer Mode
-        </Button>
-      </div>
-      */}
 
       <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
       <div className="mb-4">
@@ -517,13 +471,6 @@ const CareerBuddy = () => {
         </label>
         {resumeFile && <p className="mt-2">Selected file: {resumeFile.name}</p>}
       </div>
-
-{/*       <TextArea
-        label="Or paste your resume text here:"
-        placeholder="Enter your resume text..."
-        value={resume}
-        onChange={(e) => setResume(e.target.value)}
-      /> */}
 
       <h2 className="text-2xl font-semibold mb-4">
         Upload Your Job Description
@@ -547,13 +494,6 @@ const CareerBuddy = () => {
           <p className="mt-2">Selected file: {jobDescriptionFile.name}</p>
         )}
       </div>
-
-{/*       <TextArea
-        label="Or paste your job description text here:"
-        placeholder="Enter the job description..."
-        value={jobDescription}
-        onChange={(e) => setJobDescription(e.target.value)}
-      /> */}
 
       <h2 className="text-2xl font-semibold mb-4">
         Pitches
