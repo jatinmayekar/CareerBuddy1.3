@@ -298,13 +298,18 @@ const CareerBuddy = () => {
   };
 
   const handleGeneratePitch = async () => {
-    if (trialUsed >= 3 && apiType === "openai" && !openaiApiKey) {
-      setError("Trial expired. Please enter your OpenAI API key to continue.");
+    if (isTrialMode && trialUsed >= 3) {
+      setError("Free trials are exhausted. Please provide your own API key.");
       return;
     }
   
-    if (apiType === "hf" && !hfApiKey) {
+    if (!isTrialMode && apiType === "hf" && !hfApiKey) {
       setError("Please enter your Hugging Face API key.");
+      return;
+    }
+  
+    if (!isTrialMode && apiType === "openai" && !openaiApiKey) {
+      setError("Please enter your OpenAI API key.");
       return;
     }
   
@@ -344,10 +349,16 @@ const CareerBuddy = () => {
       setPitches(response.data.pitches);
       setTrialUsed((prevTrialUsed) => prevTrialUsed + 1);
   
-      if (apiType === "openai") {
-        const newTrialUsed = trialUsed + 1;
-        setTrialUsed(newTrialUsed);
-        localStorage.setItem("trialUsed", newTrialUsed.toString());
+      if (response.data.pitches && response.data.pitches.length > 0) {
+        setPitches(response.data.pitches);
+        
+        if (isTrialMode && response.data.trialsRemaining !== undefined) {
+          const newTrialUsed = 3 - response.data.trialsRemaining;
+          setTrialUsed(newTrialUsed);
+          localStorage.setItem("trialUsed", newTrialUsed.toString());
+        }
+      } else {
+        setError("Failed to generate valid pitches. Please try again.");
       }
   
       setDebugInfo(JSON.stringify(response.data, null, 2));

@@ -217,7 +217,6 @@ def api_generate_pitches():
             if user_trials[user_id] <= 0:
                 return jsonify({"error": "Free trials are exhausted. Please provide your own API key."}), 403
             api_key = OPENAI_API_KEY
-            user_trials[user_id] -= 1
             api_type = 'openai'
         else:
             api_key = user_api_key
@@ -230,8 +229,10 @@ def api_generate_pitches():
         else:
             return jsonify({"error": "Invalid API type"}), 400
 
-        # if pitches == []
-        
+        # Only decrement trial if pitches were successfully generated
+        if is_trial_mode and pitches != []:
+            user_trials[user_id] -= 1
+
         return jsonify({
             "pitches": pitches, 
             "trialsRemaining": max(0, user_trials[user_id])
