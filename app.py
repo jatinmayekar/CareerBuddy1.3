@@ -32,7 +32,7 @@ import time
 from functools import wraps
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
+CORS(app, resources={r"/*": {"origins": ["https://career-buddy.netlify.app/","https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 HUME_AI_API_KEY = os.getenv('HUME_AI_API_KEY')
@@ -536,8 +536,8 @@ def generate_feedback_openai(api_key, analysis_results):
         chat_completion = client.chat.completions.create(
             model="gpt-3.5-turbo-0125",
             messages=[
-                {"role": "system", "content": "You are an expert career coach providing feedback on a practice pitch."},
-                {"role": "user", "content": f"Provide feedback on this pitch analysis: {analysis_results}"}
+                {"role": "system", "content": "You must be an expert career coach providing feedback on a practice pitch concisely, smartly and efficiently based on the pitch analysis scores. You must reply as if you are directly talking to the user"},
+                {"role": "user", "content": f" Pitch analysis: {analysis_results}"}
             ]
         )
         return chat_completion.choices[0].message.content
@@ -554,8 +554,8 @@ def generate_feedback_hf(api_key, model_name, analysis_results):
     try:
         response = client.chat_completion(
             messages=[
-                {"role": "system", "content": "You are an expert career coach providing feedback on a practice pitch."},
-                {"role": "user", "content": f"Provide feedback on this pitch analysis: {analysis_results}"}
+                {"role": "system", "content": "You must be an expert career coach providing feedback on a practice pitch concisely, smartly and efficiently based on the pitch analysis scores. You must reply as if you are directly talking to the user"},
+                {"role": "user", "content": f" Pitch analysis: {analysis_results}"}
             ],
             max_tokens=1000,
             stream=False,
