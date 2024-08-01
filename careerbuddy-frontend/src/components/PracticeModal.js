@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const PracticeModal = ({ pitch, onComplete, onCancel }) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -9,32 +9,7 @@ const PracticeModal = ({ pitch, onComplete, onCancel }) => {
   const videoChunks = useRef([]);
   const timerRef = useRef(null);
 
-  useEffect(() => {
-    let timer;
-    if (isRecording && countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    } else if (isRecording && countdown === 0) {
-      startRecording();
-    }
-    return () => clearTimeout(timer);
-  }, [isRecording, countdown]);
-
-  useEffect(() => {
-    if (isRecording && countdown === 0) {
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prevTime) => prevTime + 0.1);
-      }, 100);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isRecording, countdown]);
-
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setCountdown(3);
-    setRecordingTime(0);
-  };
-
-  const startRecording = async () => {
+  const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       mediaRecorder.current = new MediaRecorder(stream);
@@ -56,6 +31,31 @@ const PracticeModal = ({ pitch, onComplete, onCancel }) => {
     } catch (error) {
       console.error("Error starting recording:", error);
     }
+  }, [onComplete]);
+
+  useEffect(() => {
+    let timer;
+    if (isRecording && countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    } else if (isRecording && countdown === 0) {
+      startRecording();
+    }
+    return () => clearTimeout(timer);
+  }, [isRecording, countdown, startRecording]);
+
+  useEffect(() => {
+    if (isRecording && countdown === 0) {
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prevTime) => prevTime + 0.1);
+      }, 100);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [isRecording, countdown]);
+
+  const handleStartRecording = () => {
+    setIsRecording(true);
+    setCountdown(3);
+    setRecordingTime(0);
   };
 
   const handleStopRecording = () => {

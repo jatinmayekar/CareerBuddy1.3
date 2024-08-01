@@ -271,7 +271,6 @@ const CareerBuddy = () => {
   const [analysisResults, setAnalysisResults] = useState(null); 
   const [currentPitch, setCurrentPitch] = useState(null);
   const [practiceHistory, setPracticeHistory] = useState([]);
-  const [userPitch, setUserPitch] = useState("");
   const [isGeneratingAudio, setIsGeneratingAudio] = useState({});
 
   useEffect(
@@ -432,7 +431,6 @@ const CareerBuddy = () => {
       if (response.data && response.data.audioAnalysis && response.data.videoAnalysis) {
         setAnalysisResults(response.data);
         setPracticeHistory([...practiceHistory, response.data]);
-        setUserPitch(transcription);
       } else {
         throw new Error('Invalid response format from server');
       }
@@ -640,6 +638,7 @@ const CareerBuddy = () => {
                 >
                   Practice
                 </button>
+                <CopyButton text={pitch} />
               </div>
             </div>
           ))}
