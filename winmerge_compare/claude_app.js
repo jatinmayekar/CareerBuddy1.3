@@ -1,133 +1,102 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import AudioPlayer from "./components/AudioPlayer";
+import PracticeModal from "./components/PracticeModal";
+import AnalysisResults from "./components/AnalysisResults";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API_URL = window.location.hostname === "localhost" 
+  ? "http://localhost:5000" 
+  : "https://careerbuddy-54b5c7a8058b.herokuapp.com";
 
 const CareerBuddy = () => {
-  const [apiKey, setApiKey] = useState("");
-  const [apiType, setApiType] = useState("openai");
-  const [modelName, setModelName] = useState("");
-  const [resumeFile, setResumeFile] = useState(null);
-  const [jobDescriptionFile, setJobDescriptionFile] = useState(null);
-  const [pitches, setPitches] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [trialUsed, setTrialUsed] = useState(0);
-  const [userId, setUserId] = useState("");
+  // ... (keep existing state variables) ...
+  const [audioData, setAudioData] = useState({});
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [currentPitch, setCurrentPitch] = useState(null);
 
-  useEffect(() => {
-    const storedTrialUsed = localStorage.getItem("trialUsed");
-    if (storedTrialUsed) {
-      setTrialUsed(parseInt(storedTrialUsed, 10));
-    }
-    setUserId(Math.random().toString(36).substring(7));
-  }, []);
+  // ... (keep existing functions) ...
 
-  const handleFileUpload = (event, setFile) => {
-    const file = event.target.files[0];
-    if (file && file.type === "application/pdf") {
-      setFile(file);
-    } else {
-      setError("Please upload a PDF file.");
+  const handleGenerateAudio = async (pitchText, index) => {
+    try {
+      const response = await axios.post(`${API_URL}/generate-audio`, { pitchText });
+      setAudioData(prevData => ({
+        ...prevData,
+        [index]: response.data.audioData
+      }));
+    } catch (error) {
+      console.error("Error generating audio:", error);
+      setError("Failed to generate audio. Please try again.");
     }
   };
 
-  const handleGeneratePitch = async () => {
-    if (!resumeFile || !jobDescriptionFile) {
-      setError("Please upload both resume and job description PDFs.");
-      return;
-    }
+  const handlePractice = (pitch, index) => {
+    setCurrentPitch({ text: pitch, index });
+    setPracticeMode(true);
+  };
 
-    setIsLoading(true);
-    setError("");
-
+  const handlePracticeComplete = async (audioBlob, videoBlob) => {
     try {
-      let data = new FormData();
-      data.append("apiType", apiType);
-      data.append("apiKey", apiKey);
-      data.append("userId", userId);
-      data.append("resumeFile", resumeFile);
-      data.append("jobDescriptionFile", jobDescriptionFile);
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'practice_audio.wav');
+      formData.append('video', videoBlob, 'practice_video.mp4');
 
-      if (apiType === "hf") {
-        data.append("modelName", modelName);
-      }
-
-      const response = await axios.post(`${API_URL}/generate-pitches`, data, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          "User-ID": userId,
-        },
+      const response = await axios.post(`${API_URL}/analyze-practice`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setPitches(response.data.pitches);
-      const newTrialUsed = trialUsed + 1;
-      setTrialUsed(newTrialUsed);
-      localStorage.setItem("trialUsed", newTrialUsed.toString());
-    } catch (err) {
-      console.error("Error generating pitches:", err);
-      setError(`Failed to generate pitches: ${err.response?.data?.error || err.message}`);
+      setAnalysisResults(response.data);
+      setPracticeMode(false);
+    } catch (error) {
+      console.error("Error analyzing practice:", error);
+      setError("Failed to analyze practice. Please try again.");
+      setPracticeMode(false);
     }
-    setIsLoading(false);
   };
 
-  return (
-    <div>
-      <h1>CareerBuddy: Your AI Career Fair Assistant</h1>
-      
-      {trialUsed < 3 ? (
-        <div>
-          <p>Trial uses remaining: {3 - trialUsed}</p>
-          <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, setResumeFile)} />
-          <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, setJobDescriptionFile)} />
-          <button onClick={handleGeneratePitch} disabled={isLoading}>
-            {isLoading ? "Generating..." : "Generate Pitches"}
-          </button>
-        </div>
-      ) : (
-        <div>
-          <p>Trial period has ended. Please choose an API to continue:</p>
-          <select value={apiType} onChange={(e) => setApiType(e.target.value)}>
-            <option value="openai">OpenAI</option>
-            <option value="hf">Hugging Face</option>
-          </select>
-          <input 
-            type="text" 
-            placeholder="Enter your API key" 
-            value={apiKey} 
-            onChange={(e) => setApiKey(e.target.value)} 
-          />
-          {apiType === "hf" && (
-            <input 
-              type="text" 
-              placeholder="Enter model name" 
-              value={modelName} 
-              onChange={(e) => setModelName(e.target.value)} 
-            />
-          )}
-          <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, setResumeFile)} />
-          <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, setJobDescriptionFile)} />
-          <button onClick={handleGeneratePitch} disabled={isLoading}>
-            {isLoading ? "Generating..." : "Generate Pitches"}
-          </button>
-        </div>
-      )}
+  // ... (keep existing JSX) ...
 
-      {error && <p style={{color: 'red'}}>{error}</p>}
-
-      {pitches.length > 0 && (
-        <div>
-          <h2>Your Personalized Pitches</h2>
-          {pitches.map((pitch, index) => (
-            <div key={index}>
-              <h3>Pitch {index + 1}</h3>
-              <p>{pitch}</p>
-            </div>
-          ))}
-        </div>
-      )}
+  {pitches.map((pitch, index) => (
+    <div key={index} className="bg-gray-100 p-6 rounded-lg mb-6 shadow-md">
+      <h4 className="text-lg font-semibold mb-2 text-blue-600">Pitch {index + 1}</h4>
+      <p className="text-gray-800 leading-relaxed whitespace-pre-line">{pitch}</p>
+      <div className="mt-4 space-x-2">
+        <button
+          onClick={() => handleGenerateAudio(pitch, index)}
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
+        >
+          Generate Audio
+        </button>
+        {audioData[index] && (
+          <AudioPlayer audioData={audioData[index]} />
+        )}
+        <button
+          onClick={() => handlePractice(pitch, index)}
+          className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors"
+        >
+          Practice
+        </button>
+      </div>
     </div>
-  );
+  ))}
+
+  {practiceMode && (
+    <PracticeModal
+      pitch={currentPitch.text}
+      onComplete={handlePracticeComplete}
+      onCancel={() => setPracticeMode(false)}
+    />
+  )}
+
+  {analysisResults && (
+    <AnalysisResults
+      results={analysisResults}
+      onClose={() => setAnalysisResults(null)}
+    />
+  )}
+
+  // ... (keep existing JSX) ...
+
 };
 
 export default CareerBuddy;

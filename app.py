@@ -6,21 +6,45 @@ import PyPDF2
 import io
 import traceback
 import os
+import asyncio
+import websockets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import json
+import base64
+from pydub import AudioSegment
+import io
+import pyaudio
+import wave
+import cv2
+from hume import HumeStreamClient
+from hume.models.config import ProsodyConfig, FaceConfig
+import numpy as np
 import requests
 from functools import wraps
-import json
 import traceback
 from huggingface_hub import InferenceClient
-
+import tempfile
+from werkzeug.utils import secure_filename
+import logging
+import time
+from functools import wraps
 
 app = Flask(__name__)
-CORS(app, resources={
-     r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
+CORS(app, resources={r"/*": {"origins": ["https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+HUME_AI_API_KEY = os.getenv('HUME_AI_API_KEY')
+HUME_AI_API_URL = "wss://api.hume.ai/v0/stream/evi"
+
+API_KEY = os.getenv("HUME_AI_API_KEY")
+API_URL = "wss://api.hume.ai/v0/evi/chat"
+
+API_TYPE = ""
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 debugLevel = 3 # Debugging level : 3 for in-depth
 
@@ -54,6 +78,25 @@ Must format your response exactly as follows:
 
 """
 
+def retry_with_backoff(retries=3, backoff_in_seconds=1):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            x = 0
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if x == retries:
+                        logger.exception(f"All retry attempts failed for {func.__name__}")
+                        raise
+                    else:
+                        wait = backoff_in_seconds * 2 ** x
+                        logger.warning(f"Attempt {x + 1} failed for {func.__name__}: {str(e)}. Retrying in {wait} seconds...")
+                        time.sleep(wait)
+                        x += 1
+        return wrapper
+    return decorator
 
 def validate_api_key(api_key):
     client = OpenAI(api_key=api_key)
@@ -63,7 +106,6 @@ def validate_api_key(api_key):
     except Exception as e:
         print(f"API Key Validation Error: {str(e)}")
         return False
-
 
 def extract_text_from_pdf(pdf_file):
     print("Extracting pdf")
@@ -79,7 +121,7 @@ def extract_text_from_pdf(pdf_file):
         print(f"Error reading PDF: {str(e)}")
         return None
 
-
+@retry_with_backoff(retries=3)
 def generate_pitches_hf(hf_token, model_name, resume, job_description):
     print(f"Received HF API key: {hf_token[:5]}...") # Print first 5 characters for security
     try:
@@ -111,7 +153,7 @@ def generate_pitches_hf(hf_token, model_name, resume, job_description):
         print(traceback.format_exc())
         return [f"Error: {str(e)}"]
 
-
+@retry_with_backoff(retries=3)
 def generate_pitches_openai(api_key, resume, job_description):
     client = OpenAI(api_key=api_key)
     try:
@@ -133,9 +175,6 @@ def generate_pitches_openai(api_key, resume, job_description):
     except Exception as e:
         print(f"Error generating pitches with OpenAI: {str(e)}")
         return [f"Error: {str(e)}"]
-
-# Add home route
-
 
 @app.route('/')
 def home():
@@ -175,6 +214,7 @@ def api_generate_pitches():
         job_description = ''
         is_trial_mode = data.get('isTrialMode') == 'true'
         api_type = data.get('apiType', 'openai')
+        API_TYPE = api_type
         user_api_key = data.get('apiKey', '')
         user_id = data.get('userId', '')
         model_name = data.get('modelName', 'meta-llama/Meta-Llama-3-8B-Instruct')
@@ -243,7 +283,6 @@ def api_generate_pitches():
         return jsonify(
             {"error": f"An unexpected error occurred: {str(e)}"}), 500
 
-
 @app.route('/submit-investor-form', methods=['POST'])
 def submit_investor_form():
     try:
@@ -292,7 +331,276 @@ def submit_investor_form():
     except Exception as e:
         print(f"Error submitting investor form: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        
+@app.route('/generate-audio', methods=['POST'])
+def generate_audio():
+    data = request.json
+    pitch_text = data.get('pitchText')
+    
+    if not pitch_text:
+        return jsonify({"error": "No pitch text provided"}), 400
 
+    try:
+        audio_data, text_response = asyncio.run(generate_audio_async(pitch_text))
+        
+        if audio_data:
+            return jsonify({
+                "audioData": base64.b64encode(audio_data).decode('utf-8'),
+                "textResponse": text_response
+            })
+        else:
+            return jsonify({"error": text_response}), 500
 
+    except Exception as e:
+        print(f"Error generating audio: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+async def generate_audio_async(pitch_text):
+    try:
+        websocket = await connect_to_evi()
+        if not websocket:
+            return None, "Failed to connect to Hume AI EVI Chat API"
+
+        await send_message(websocket, pitch_text)
+        audio_data, text_response = await receive_audio(websocket)
+        await websocket.close()
+
+        return audio_data, text_response
+    except Exception as e:
+        print(f"Error generating audio: {str(e)}")
+        return None, str(e)
+    
+async def send_message(websocket, message):
+    assistant_input = {
+        "type": "assistant_input",
+        "text": message
+    }
+    await websocket.send(json.dumps(assistant_input))
+    print(f"Message sent: {message}")
+
+async def receive_audio(websocket):
+    print("Waiting for audio response...")
+    audio_chunks = []
+    text_response = ""
+    
+    try:
+        while True:
+            response = await websocket.recv()
+            data = json.loads(response)
+            print(f"Received response of type: {data['type']}")
+            
+            if data["type"] == "audio_output":
+                audio_chunks.append(base64.b64decode(data["data"]))
+            elif data["type"] == "assistant_message":
+                text_response += data['message']['content'] + " "
+            elif data["type"] == "assistant_end":
+                print("Received end of assistant response")
+                break
+            else:
+                print(f"Received other message type: {data['type']}")
+    
+    except websockets.exceptions.ConnectionClosedError:
+        print("Connection closed unexpectedly. The complete message may not have been received.")
+    
+    if audio_chunks:
+        combined_audio = AudioSegment.empty()
+        for chunk in audio_chunks:
+            segment = AudioSegment.from_wav(io.BytesIO(chunk))
+            combined_audio += segment
+        
+        audio_data = combined_audio.export(format="wav").read()
+        return audio_data, text_response
+    else:
+        print("No audio data received")
+        return None, text_response
+    
+async def connect_to_evi(max_retries=3, retry_delay=5):
+    uri = f"{API_URL}?api_key={API_KEY}"
+    for attempt in range(max_retries):
+        try:
+            websocket = await websockets.connect(uri)
+            print("Connected to Hume AI EVI Chat API")
+            return websocket
+        except Exception as e:
+            print(f"Connection attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+            else:
+                print("Max retries reached. Unable to connect.")
+    return None
+
+async def close_connection(websocket):
+    if websocket:
+        await websocket.close()
+        logger.debug("WebSocket connection closed")
+
+@app.route('/analyze-practice', methods=['POST'])
+def analyze_practice():
+    try:
+        audio_file = request.files.get('audio')
+        video_file = request.files.get('video')
+        
+        if not audio_file or not video_file:
+            return jsonify({"error": "Both audio and video files are required"}), 400
+
+        logger.debug(f"Received audio file: {audio_file.filename}")
+        logger.debug(f"Received video file: {video_file.filename}")
+
+        # Process audio and video files
+        audio_results = process_audio(audio_file)
+        video_results = process_video(video_file)
+        
+        return jsonify({
+            "audioAnalysis": audio_results,
+            "videoAnalysis": video_results
+        })
+    except Exception as e:
+        logger.exception("Error in analyze_practice")
+        return jsonify({"error": str(e)}), 500
+
+def process_audio(audio_file):
+    client = HumeStreamClient(HUME_AI_API_KEY)
+    config = ProsodyConfig()
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
+        audio_file.save(temp_audio)
+        temp_audio_path = temp_audio.name
+
+    try:
+        result = asyncio.run(analyze_audio(client, config, temp_audio_path))
+        return aggregate_audio_results(result)
+    finally:
+        os.unlink(temp_audio_path)  # Delete the temporary file
+
+def process_video(video_file):
+    client = HumeStreamClient(HUME_AI_API_KEY)
+    config = FaceConfig()
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
+        video_file.save(temp_video)
+        temp_video_path = temp_video.name
+
+    try:
+        result = asyncio.run(analyze_video(client, config, temp_video_path))
+        return aggregate_video_results(result)
+    finally:
+        os.unlink(temp_video_path)  # Delete the temporary file
+
+async def analyze_audio(client, config, audio_file_path):
+    async with client.connect([config]) as socket:
+        result = await socket.send_file(audio_file_path)
+        return result["prosody"]["predictions"][0]["emotions"] if "prosody" in result else None
+
+async def analyze_video(client, config, video_file_path):
+    async with client.connect([config]) as socket:
+        result = await socket.send_file(video_file_path)
+        return result["face"]["predictions"] if "face" in result else None
+
+def aggregate_audio_results(results):
+    if not results:
+        return {"error": "No valid results to aggregate."}
+    
+    all_emotions = {}
+    for emotion in results:
+        name = emotion['name']
+        score = emotion['score']
+        all_emotions[name] = all_emotions.get(name, []) + [score]
+    
+    avg_emotions = {name: np.mean(scores) for name, scores in all_emotions.items()}
+    sorted_emotions = sorted(avg_emotions.items(), key=lambda x: x[1], reverse=True)
+    
+    return {"topEmotions": sorted_emotions[:5]}
+
+def aggregate_video_results(results):
+    if not results:
+        return {"error": "No valid video results to aggregate."}
+    
+    all_emotions = {}
+    for frame in results:
+        if 'emotions' in frame:
+            for emotion in frame['emotions']:
+                name = emotion['name']
+                score = emotion['score']
+                all_emotions[name] = all_emotions.get(name, []) + [score]
+    
+    avg_emotions = {name: np.mean(scores) for name, scores in all_emotions.items()}
+    sorted_emotions = sorted(avg_emotions.items(), key=lambda x: x[1], reverse=True)
+    
+    return {"topEmotions": sorted_emotions[:5]}
+
+@retry_with_backoff(retries=3)
+def generate_feedback_openai(api_key, analysis_results):
+    client = OpenAI(api_key=api_key)
+    try:
+        chat_completion = client.chat.completions.create(
+            model="gpt-3.5-turbo-0125",
+            messages=[
+                {"role": "system", "content": "You are an expert career coach providing feedback on a practice pitch."},
+                {"role": "user", "content": f"Provide feedback on this pitch analysis: {analysis_results}"}
+            ]
+        )
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        logger.exception("Error generating feedback with OpenAI")
+        raise  # Re-raise the exception to trigger the retry
+
+@retry_with_backoff(retries=3)
+def generate_feedback_hf(api_key, model_name, analysis_results):
+    client = InferenceClient(
+        model=model_name,
+        token=api_key,
+    )
+    try:
+        response = client.chat_completion(
+            messages=[
+                {"role": "system", "content": "You are an expert career coach providing feedback on a practice pitch."},
+                {"role": "user", "content": f"Provide feedback on this pitch analysis: {analysis_results}"}
+            ],
+            max_tokens=1000,
+            stream=False,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        logger.exception("Error generating feedback with Hugging Face")
+        raise  # Re-raise the exception to trigger the retry
+
+@app.route('/generate-feedback', methods=['POST'])
+def generate_feedback():
+    try:
+        data = request.json
+        analysis_results = data.get('analysisResults')
+        is_trial_mode = data.get('isTrialMode') == 'true'
+        api_type = data.get('apiType', 'openai')
+        user_api_key = data.get('apiKey', '')
+        user_id = data.get('userId', '')
+        model_name = data.get('modelName', 'meta-llama/Meta-Llama-3-8B-Instruct')
+
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+
+        if is_trial_mode:
+            if user_trials[user_id] <= 0:
+                return jsonify({"error": "Free trials are exhausted. Please provide your own API key."}), 403
+            api_key = OPENAI_API_KEY
+            api_type = 'openai'
+        else:
+            api_key = user_api_key
+
+        if api_type == 'openai':
+            feedback = generate_feedback_openai(api_key, analysis_results)
+        elif api_type == 'hf':
+            feedback = generate_feedback_hf(api_key, model_name, analysis_results)
+        else:
+            return jsonify({"error": "Invalid API type"}), 400
+
+        if not feedback:
+            return jsonify({"error": "Failed to generate feedback"}), 500
+
+        return jsonify({"feedback": feedback})
+    except Exception as e:
+        logger.exception("Error in generate_feedback")
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+    
 if __name__ == '__main__':
     app.run(debug=True)

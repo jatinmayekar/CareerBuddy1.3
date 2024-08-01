@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@craco/craco": "^7.1.0",
-    "@humeai/voice-react": "^0.1.11-beta.4"
+    "@humeai/voice-react": "^0.1.11-beta.4",
+    "recharts": "^2.12.7"
   }
 }

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import PracticeModal from "./components/PracticeModal";
+import AnalysisResults from "./components/AnalysisResults";
+import PracticeTips from "./components/PracticeTips";
 
 //const API_URL =  "https://careerbuddy-54b5c7a8058b.herokuapp.com" || "http://localhost:5000";
 
@@ -263,6 +266,13 @@ const CareerBuddy = () => {
   const [trialUsed, setTrialUsed] = useState(0);
   const [userId, setUserId] = useState("");
   const [isTrialMode, setIsTrialMode] = useState(true);
+  const [audioData, setAudioData] = useState({});
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState(null); 
+  const [currentPitch, setCurrentPitch] = useState(null);
+  const [practiceHistory, setPracticeHistory] = useState([]);
+  const [userPitch, setUserPitch] = useState("");
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState({});
 
   useEffect(
     () => {
@@ -379,7 +389,61 @@ const CareerBuddy = () => {
     }
     setIsLoading(false);
   };
+  
+  const handleGenerateAudio = async (pitch, index) => {
+    try {
+      setIsGeneratingAudio(prev => ({ ...prev, [index]: true }));
+      const response = await axios.post(`${API_URL}/generate-audio`, { pitchText: pitch });
+      console.log('Audio generation response:', response.data);
+      if (response.data.audioData) {
+        setAudioData(prevData => ({
+          ...prevData,
+          [index]: response.data.audioData
+        }));
+        console.log(`Audio data set for pitch ${index}`);
+      } else {
+        throw new Error("No audio data received");
+      }
+    } catch (error) {
+      console.error("Error generating audio:", error);
+      setError(`Failed to generate audio: ${error.message}`);
+    } finally {
+      setIsGeneratingAudio(prev => ({ ...prev, [index]: false }));
+    }
+  };
 
+  const handlePractice = (pitch, index) => {
+    setCurrentPitch({ text: pitch, index });
+    setPracticeMode(true);
+  };
+
+  const handlePracticeComplete = async (audioBlob, videoBlob, transcription) => {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'practice_audio.wav');
+      formData.append('video', videoBlob, 'practice_video.mp4');
+  
+      const response = await axios.post(`${API_URL}/analyze-practice`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+  
+      console.log('Analysis response:', response.data);  // Add this line for debugging
+  
+      if (response.data && response.data.audioAnalysis && response.data.videoAnalysis) {
+        setAnalysisResults(response.data);
+        setPracticeHistory([...practiceHistory, response.data]);
+        setUserPitch(transcription);
+      } else {
+        throw new Error('Invalid response format from server');
+      }
+      setPracticeMode(false);
+    } catch (error) {
+      console.error("Error analyzing practice:", error);
+      setError(`Failed to analyze practice: ${error.message}. Please try again.`);
+      setPracticeMode(false);
+    }
+  };
+ 
   return (
     <MockStreamlit>
       <h1 className="text-3xl font-bold mb-6">
@@ -553,21 +617,57 @@ const CareerBuddy = () => {
             Your Personalized Pitches
           </h3>
           {pitches.map((pitch, index) => (
-            <div
-              key={index}
-              className="bg-gray-100 p-6 rounded-lg mb-6 shadow-md"
-            >
-              <h4 className="text-lg font-semibold mb-2 text-blue-600">
-                Pitch {index + 1}
-              </h4>
-              <p className="text-gray-800 leading-relaxed whitespace-pre-line">
-                {pitch}
-              </p>
-              <CopyButton text={pitch} />
+            <div key={index} className="bg-gray-100 p-6 rounded-lg mb-6 shadow-md">
+              <h4 className="text-lg font-semibold mb-2 text-blue-600">Pitch {index + 1}</h4>
+              <p className="text-gray-800 leading-relaxed whitespace-pre-line">{pitch}</p>
+              <div className="mt-4 space-x-2">
+                <button
+                  onClick={() => handleGenerateAudio(pitch, index)}
+                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
+                  disabled={isGeneratingAudio[index]}
+                >
+                  {isGeneratingAudio[index] ? 'Generating...' : 'Listen to Pitch'}
+                </button>
+                {audioData[index] && (
+                  <audio controls className="mt-2">
+                    <source src={`data:audio/wav;base64,${audioData[index]}`} type="audio/wav" />
+                    Your browser does not support the audio element.
+                  </audio>
+                )}
+                <button
+                  onClick={() => handlePractice(pitch, index)}
+                  className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors"
+                >
+                  Practice
+                </button>
+              </div>
             </div>
           ))}
+
         </div>
       )}
+		
+      {practiceMode && (
+      <PracticeModal
+        pitch={currentPitch.text}
+        onComplete={handlePracticeComplete}
+        onCancel={() => setPracticeMode(false)}
+      />
+      )}
+
+      {analysisResults && (
+        <AnalysisResults
+          results={analysisResults}
+          onClose={() => setAnalysisResults(null)}
+          isTrialMode={isTrialMode}
+          apiType={apiType}
+          apiKey={isTrialMode ? '' : (apiType === 'openai' ? openaiApiKey : hfApiKey)}
+          userId={userId}
+          modelName={modelName}
+        />
+      )}
+
+      <PracticeTips />
 
       {debugInfo && (
         <div className="mt-6">

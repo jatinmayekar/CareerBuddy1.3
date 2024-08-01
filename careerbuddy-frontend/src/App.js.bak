@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import AudioPlayer from "./components/AudioPlayer";
+import PracticeModal from "./components/PracticeModal";
+import AnalysisResults from "./components/AnalysisResults";
 
 //const API_URL =  "https://careerbuddy-54b5c7a8058b.herokuapp.com" || "http://localhost:5000";
 
@@ -9,7 +12,7 @@ const API_URL = window.location.hostname === "localhost"
 
 const MockStreamlit = ({ children }) => (
   <div className="bg-gray-100 min-h-screen p-8">
-    <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+    <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-mda">
       {children}
     </div>
   </div>
@@ -23,21 +26,6 @@ const Button = ({ children, onClick, disabled }) => (
   >
     {children}
   </button>
-);
-
-const TextArea = ({ label, placeholder, value, onChange }) => (
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      {label}
-    </label>
-    <textarea
-      className="w-full p-2 border border-gray-300 rounded"
-      rows="4"
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-    ></textarea>
-  </div>
 );
 
 const Icon = ({ d }) => (
@@ -262,14 +250,13 @@ const InvestorForm = () => {
 };
 
 const CareerBuddy = () => {
-  const [apiKey, setApiKey] = useState("");
-  const [apiType, setApiType] = useState("hf");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [hfApiKey, setHfApiKey] = useState("");
+  const [apiType, setApiType] = useState("openai");
   const [modelName, setModelName] = useState(
-    "meta-llama/Meta-Llama-3-70B-Instruct",
+    "meta-llama/Meta-Llama-3-8B-Instruct",
   );
-  const [resume, setResume] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
-  const [jobDescription, setJobDescription] = useState("");
   const [jobDescriptionFile, setJobDescriptionFile] = useState(null);
   const [pitches, setPitches] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -277,25 +264,36 @@ const CareerBuddy = () => {
   const [debugInfo, setDebugInfo] = useState("");
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [trialUsed, setTrialUsed] = useState(0);
-  const [devKey, setDevKey] = useState("");
-  const [isDevMode, setIsDevMode] = useState(false);
   const [userId, setUserId] = useState("");
+  const [isTrialMode, setIsTrialMode] = useState(true);
+  const [audioData, setAudioData] = useState({});
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [currentPitch, setCurrentPitch] = useState(null);
 
   useEffect(
     () => {
-      if (!isDevMode) {
-        const storedTrialUsed = localStorage.getItem("trialUsed");
-        if (storedTrialUsed) {
-          setTrialUsed(parseInt(storedTrialUsed, 10));
-        }
+      const storedTrialUsed = localStorage.getItem("trialUsed");
+      if (storedTrialUsed) {
+        setTrialUsed(parseInt(storedTrialUsed, 10));
       }
 
       // Generate a random user ID for demo purposes
       setUserId(Math.random().toString(36).substring(7));
+
+      // Set default API type to OpenAI when trial is active
+      if (trialUsed < 3) {
+        setApiType("openai");
+      }
     },
-    [isDevMode],
-    [],
+    [trialUsed]
   );
+
+  useEffect(() => {
+    console.log("Current API Type:", apiType);
+    console.log("OpenAI API Key (first 5 chars):", openaiApiKey.substring(0, 5));
+    console.log("HF API Key (first 5 chars):", hfApiKey.substring(0, 5));
+  }, [apiType, openaiApiKey, hfApiKey]);
 
   const handleFileUpload = (event, setFile) => {
     const file = event.target.files[0];
@@ -306,74 +304,46 @@ const CareerBuddy = () => {
     }
   };
 
-  const activateDevMode = async () => {
-    try {
-      const response = await axios.post(`${API_URL}/validate-dev-key`, {
-        devKey,
-      });
-      if (response.data.isValid) {
-        setIsDevMode(true);
-        setTrialUsed(0);
-        localStorage.removeItem("trialUsed");
-        setError("");
-      } else {
-        setError("Invalid developer key.");
-      }
-    } catch (err) {
-      setError("Failed to validate developer key.");
-      console.error(err);
-    }
-  };
-
   const handleGeneratePitch = async () => {
-    if (!isDevMode && trialUsed >= 3 && apiType === "hf") {
-      setError(
-        "Trial expired. Please use OpenAI API or switch to the free Hugging Face option.",
-      );
+    if (isTrialMode && trialUsed >= 3) {
+      setError("Free trials are exhausted. Please provide your own API key.");
       return;
     }
-
-    if (apiType === "openai" && !apiKey) {
+  
+    if (!isTrialMode && apiType === "hf" && !hfApiKey) {
+      setError("Please enter your Hugging Face API key.");
+      return;
+    }
+  
+    if (!isTrialMode && apiType === "openai" && !openaiApiKey) {
       setError("Please enter your OpenAI API key.");
       return;
     }
-
-    if (!resumeFile && !resume) {
-      setError("Please provide a resume (either text or PDF file).");
+  
+    if (!resumeFile) {
+      setError("Please provide a resume (PDF files only).");
       return;
     }
-
-    if (!jobDescriptionFile && !jobDescription) {
-      setError("Please provide a job description (either text or PDF file).");
+  
+    if (!jobDescriptionFile) {
+      setError("Please provide a job description (PDF files only).");
       return;
     }
-
+  
     setIsLoading(true);
     setError("");
     setDebugInfo("");
-
+  
     try {
       let data = new FormData();
-      data.append("apiType", apiType);
-      data.append("apiKey", apiKey);
-      data.append("devKey", devKey);
+      data.append("isTrialMode", isTrialMode);
+      data.append("apiType", isTrialMode ? "openai" : apiType);
+      data.append("apiKey", isTrialMode ? "" : (apiType === "openai" ? openaiApiKey : hfApiKey));
       data.append("userId", userId);
       data.append("resumeFile", resumeFile);
       data.append("jobDescriptionFile", jobDescriptionFile);
-      
-      if (apiType === "hf") {
+      if (!isTrialMode && apiType === "hf") {
         data.append("modelName", modelName);
-      }      
-      if (resumeFile) {
-        data.append("resumeFile", resumeFile);
-      } else {
-        data.append("resume", resume);
-      }
-  
-      if (jobDescriptionFile) {
-        data.append("jobDescriptionFile", jobDescriptionFile);
-      } else {
-        data.append("jobDescription", jobDescription);
       }
   
       const response = await axios.post(`${API_URL}/generate-pitches`, data, {
@@ -382,104 +352,165 @@ const CareerBuddy = () => {
           "User-ID": userId,
         },
       });
-
+  
       setPitches(response.data.pitches);
       setTrialUsed((prevTrialUsed) => prevTrialUsed + 1);
-
-      if (apiType === "hf" && !isDevMode) {
-        const newTrialUsed = trialUsed + 1;
-        setTrialUsed(newTrialUsed);
-        localStorage.setItem("trialUsed", newTrialUsed.toString());
+  
+      if (response.data.pitches && response.data.pitches.length > 0) {
+        setPitches(response.data.pitches);
+        
+        if (isTrialMode && response.data.trialsRemaining !== undefined) {
+          const newTrialUsed = 3 - response.data.trialsRemaining;
+          setTrialUsed(newTrialUsed);
+          localStorage.setItem("trialUsed", newTrialUsed.toString());
+        }
+      } else {
+        throw new Error("Failed to generate valid pitches. Please try again.");
       }
-
-      setDebugInfo(JSON.stringify(response.data, null, 2));
     } catch (err) {
       console.error("Error generating pitches:", err);
-      setError(
-        `Failed to generate pitches: ${err.response?.data?.error || err.message}`
-      );
-      setDebugInfo(JSON.stringify(err.response?.data, null, 2));
-      if (err.response?.status === 403) {
+      setError(err.response?.data?.error || err.message || "Failed to generate pitches. Please try again.");
+      
+      // If it's a server error (5xx), don't update the trial count
+      if (err.response && err.response.status >= 500) {
+        console.log("Server error occurred. Trial count not updated.");
+      } else if (err.response?.status === 403) {
         setTrialUsed(3); // Trial expired
+        localStorage.setItem("trialUsed", "3");
+      } else if (isTrialMode) {
+        // For other errors in trial mode, increment the trial count
+        const newTrialUsed = Math.min(trialUsed + 1, 3);
+        setTrialUsed(newTrialUsed);
+        localStorage.setItem("trialUsed", newTrialUsed.toString());
       }
     }
     setIsLoading(false);
   };
+  
+  const handleGenerateAudio = async (pitchText, index) => {
+    try {
+      const response = await axios.post(`${API_URL}/generate-audio`, { pitchText });
+      setAudioData(prevData => ({
+        ...prevData,
+        [index]: response.data.audioData
+      }));
+    } catch (error) {
+      console.error("Error generating audio:", error);
+      setError("Failed to generate audio. Please try again.");
+    }
+  };
+  const handlePractice = (pitch, index) => {
+    setCurrentPitch({ text: pitch, index });
+    setPracticeMode(true);
+  };
 
+  const handlePracticeComplete = async (audioBlob, videoBlob) => {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'practice_audio.wav');
+      formData.append('video', videoBlob, 'practice_video.mp4');
+
+      const response = await axios.post(`${API_URL}/analyze-practice`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      setAnalysisResults(response.data);
+      setPracticeMode(false);
+    } catch (error) {
+      console.error("Error analyzing practice:", error);
+      setError("Failed to analyze practice. Please try again.");
+      setPracticeMode(false);
+    }
+  };
+ 
   return (
     <MockStreamlit>
       <h1 className="text-3xl font-bold mb-6">
         CareerBuddy: Your AI Career Fair Assistant
       </h1>
 
-      {!isDevMode && trialUsed < 3 ? (
-        <div className="mb-4 bg-blue-100 p-2 rounded">
-          Trial uses remaining: {3 - trialUsed}
-        </div>
-      ) : (
-        <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded-md">
-          <h2 className="text-xl font-semibold mb-2 text-yellow-800">
-            {isDevMode ? "Developer Mode Active" : "Trial Expired"}
-          </h2>
-          <p>Please choose an API to continue using CareerBuddy:</p>
-          <select
-            value={apiType}
-            onChange={(e) => setApiType(e.target.value)}
-            className="mt-2 p-2 border rounded"
-          >
-            <option value="hf">Hugging Face (Requires API key)</option>
-            <option value="openai">OpenAI (Requires API Key)</option>
-          </select>
-        </div>
-      )}
-
-      {apiType === "openai" && (
-        <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
-          <h2 className="text-xl font-semibold mb-2 text-blue-800">
-            API Configuration
-          </h2>
-          <Input
-            label="Enter your OpenAI API Key:"
-            type="password"
-            placeholder="sk-..."
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <p className="text-sm text-blue-600 mt-2">
-            Your API key is required to use GPT-4o for generating pitches. It's
-            stored securely and never shared.
-          </p>
-        </div>
-      )}
-
-      {apiType === "hf" && (
-        <div className="mb-4">
-          <label className="block mb-2">Enter Model Name:</label>
-          <input
-            type="text"
-            value={modelName}
-            onChange={(e) => setModelName(e.target.value)}
-            className="w-full p-2 border rounded"
-            placeholder="e.g., meta-llama/Meta-Llama-3-70B-Instruct"
-          />
-        </div>
-      )}
-
-      <div className="mb-6 bg-gray-100 border-l-4 border-gray-500 p-4 rounded-md">
-        <h2 className="text-xl font-semibold mb-2 text-gray-800">
-          Developer Mode
-        </h2>
-        <Input
-          label="Enter Developer Key:"
-          type="password"
-          placeholder="Dev key..."
-          value={devKey}
-          onChange={(e) => setDevKey(e.target.value)}
-        />
-        <Button onClick={activateDevMode} disabled={isLoading}>
-          Activate Developer Mode
-        </Button>
+      <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+        <button
+          onClick={() => setIsTrialMode(!isTrialMode)}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors mb-4"
+        >
+          {isTrialMode ? "Deactivate Trial" : "Activate Trial"}
+        </button>
+        
+        {isTrialMode ? (
+          <div>
+            <p className="font-semibold">Trial Mode Active</p>
+            <p>Using OpenAI API for trial period</p>
+            {trialUsed < 3 ? (
+              <p>Trial uses remaining: {3 - trialUsed}</p>
+            ) : (
+              <p className="text-yellow-800">Trial uses exhausted. Please provide your own API key.</p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <p className="font-semibold">Choose an API:</p>
+            <select
+              value={apiType}
+              onChange={(e) => setApiType(e.target.value)}
+              className="mt-2 p-2 border rounded"
+            >
+              <option value="openai">OpenAI (Requires API Key)</option>
+              <option value="hf">Hugging Face (Requires API key)</option>
+            </select>
+          </div>
+        )}
       </div>
+
+      {!isTrialMode && (
+        <>
+          {apiType === "openai" && (
+            <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+              <h2 className="text-xl font-semibold mb-2 text-blue-800">
+                OpenAI
+              </h2>
+              <label className="block mb-2">API Key</label>
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+              />
+              <p className="text-sm text-blue-600 mt-2">
+                Your API key is required to use GPT-4 for generating pitches. It's
+                stored securely and never shared.
+              </p>
+            </div>
+          )}
+
+          {apiType === "hf" && (
+            <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+              <h2 className="text-xl font-semibold mb-2 text-blue-800">
+                Hugging Face
+              </h2>
+              <label className="block mb-2">API Key</label>
+              <Input
+                type="password"
+                placeholder="hf_..."
+                value={hfApiKey}
+                onChange={(e) => setHfApiKey(e.target.value)}
+              />
+              <label className="block mb-2">Model Name</label>
+              <input
+                type="text"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="e.g., meta-llama/Meta-Llama-3-8B-Instruct"
+              />
+              <p className="text-sm text-blue-600 mt-2">
+                Your API key is required to generate pitches. It's
+                stored securely and never shared.
+              </p>
+            </div>
+          )}
+        </>
+      )}
 
       <h2 className="text-2xl font-semibold mb-4">Upload Your Resume</h2>
       <div className="mb-4">
@@ -499,13 +530,6 @@ const CareerBuddy = () => {
         </label>
         {resumeFile && <p className="mt-2">Selected file: {resumeFile.name}</p>}
       </div>
-
-      <TextArea
-        label="Or paste your resume text here:"
-        placeholder="Enter your resume text..."
-        value={resume}
-        onChange={(e) => setResume(e.target.value)}
-      />
 
       <h2 className="text-2xl font-semibold mb-4">
         Upload Your Job Description
@@ -530,12 +554,9 @@ const CareerBuddy = () => {
         )}
       </div>
 
-      <TextArea
-        label="Or paste your job description text here:"
-        placeholder="Enter the job description..."
-        value={jobDescription}
-        onChange={(e) => setJobDescription(e.target.value)}
-      />
+      <h2 className="text-2xl font-semibold mb-4">
+        Pitches
+      </h2>
 
       <Button onClick={handleGeneratePitch} disabled={isLoading}>
         {isLoading ? (
