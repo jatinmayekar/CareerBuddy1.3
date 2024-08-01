@@ -32,7 +32,7 @@ import time
 from functools import wraps
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://career-buddy.netlify.app/","https://main--career-buddy.netlify.app", "http://localhost:3000"]}})
+CORS(app, resources={r"/*": {"origins": ["https://career-buddy.netlify.app/", "http://localhost:3000"]}})
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 HUME_AI_API_KEY = os.getenv('HUME_AI_API_KEY')
