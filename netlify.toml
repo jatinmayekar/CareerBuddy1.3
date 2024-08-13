@@ -1,8 +1,26 @@
 [build]
-  command = "cd careerbuddy-frontend && npm install && npm run build"
+  command = """
+    python3.12 -m venv venv
+    source venv/bin/activate
+    pip install --upgrade pip
+    pip install wheel
+    pip install numpy==2.0.1
+    pip install -r requirements.txt
+    cd careerbuddy-frontend && npm install && npm run build
+  """
   publish = "careerbuddy-frontend/build"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[plugins]]
+  package = "netlify-plugin-cache-pip"
+
+[[plugins]]
+  package = "netlify-plugin-cache-npm"
+
+[build.environment]
+  PIP_CACHE_DIR = ".pip_cache"
+  PYTHON_VERSION = "3.12.0"
