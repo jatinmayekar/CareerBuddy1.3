@@ -1,5 +1,10 @@
 [build]
   command = """
+    python3.12 -m venv venv
+    . venv/bin/activate
+    pip install --upgrade pip
+    pip install wheel
+    pip install -r requirements.txt
     cd careerbuddy-frontend && npm install && npm run build
   """
   publish = "careerbuddy-frontend/build"
@@ -10,10 +15,13 @@
   status = 200
 
 [[plugins]]
-  package = "netlify-plugin-cache-pip"
-
-[[plugins]]
   package = "netlify-plugin-cache-npm"
 
+[[plugins]]
+  package = "netlify-plugin-cache-pip"
+
 [build.environment]
-  PIP_CACHE_DIR = ".pip_cache"
+  PYTHON_VERSION = "3.12.0"
+
+[build.image]
+  dockerfile = "Dockerfile.netlify"
