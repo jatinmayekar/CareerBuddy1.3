@@ -15,6 +15,5 @@
 [[plugins]]
   package = "netlify-plugin-cache-pip"
 
-[build.packages]
-  apt:
-    - portaudio19-dev
+[[build.packages]]
+  apt = ["portaudio19-dev"]
