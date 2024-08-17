@@ -1,6 +1,11 @@
 [build]
   command = """
-    apt-get install portaudio19-dev python-all-dev && cd careerbuddy-frontend && npm install && npm run build
+    export PORTAUDIO_PATH="$PWD/portaudio_lib" &&
+    export CFLAGS="-I$PORTAUDIO_PATH/include" &&
+    export LDFLAGS="-L$PORTAUDIO_PATH/lib" &&
+    pip install --upgrade pip &&
+    pip install --no-cache-dir -r requirements.txt &&
+    cd careerbuddy-frontend && npm install && npm run build
   """
   publish = "careerbuddy-frontend/build"
 
