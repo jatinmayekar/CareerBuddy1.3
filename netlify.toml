@@ -1,6 +1,6 @@
 [build]
   command = """
-    cd careerbuddy-frontend && npm install && npm run build
+    apt-get install portaudio19-dev python-all-dev && cd careerbuddy-frontend && npm install && npm run build
   """
   publish = "careerbuddy-frontend/build"
 
