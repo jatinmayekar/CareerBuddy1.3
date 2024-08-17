@@ -1,10 +1,5 @@
 [build]
   command = """
-    export PORTAUDIO_PATH="$PWD/portaudio_lib" &&
-    export CFLAGS="-I$PORTAUDIO_PATH/include" &&
-    export LDFLAGS="-L$PORTAUDIO_PATH/lib" &&
-    pip install --upgrade pip &&
-    pip install --no-cache-dir -r requirements.txt &&
     cd careerbuddy-frontend && npm install && npm run build
   """
   publish = "careerbuddy-frontend/build"
@@ -21,5 +16,4 @@
   package = "netlify-plugin-cache-pip"
 
 [build.environment]
-  PYTHON_VERSION = "3.8"
-  LD_LIBRARY_PATH = "/opt/build/repo/portaudio_lib/lib:$LD_LIBRARY_PATH"
+  PYTHON_VERSION = "3.12"
